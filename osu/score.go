@@ -1,6 +1,9 @@
 package osu
 
-import "math"
+import (
+	"fmt"
+	"math"
+)
 
 type statistics struct {
 	Count050  int `json:"count_50"`
@@ -12,10 +15,11 @@ type statistics struct {
 }
 
 type beatmap struct {
+	ID            int     `json:"id"`
 	StarRating    float32 `json:"difficulty_rating"`
 	Status        string  `json:"status"`
 	TotalLength   int     `json:"total_length"`
-	OD            int     `json:"accuracy"`
+	OD            int     `json:"od"`
 	Ar            float32 `json:"ar"`
 	BPM           int     `json:"bpm"`
 	CountCircles  int     `json:"count_circles"`
@@ -167,4 +171,31 @@ func (s *Score) computeTotalValue() float32 {
 
 	score := math.Pow(s.computeAimValue(), 1.1)
 	return float32(math.Pow(score, 1.0/1.1)) * float32(multiplier)
+}
+
+type Scores []Score
+
+func (s Scores) String() (res string) {
+	res = ""
+	for _, score := range s {
+		res += fmt.Sprintf(
+			"ID=%d\n"+
+				"Accuracy=%.2f\n"+
+				"Mods=%v\n"+
+				"Score=%d\n"+
+				"PP=%.0f\n"+
+				"-\n",
+			score.ID,
+			score.Accuracy,
+			score.Mods,
+			score.Score,
+			score.PP,
+		)
+	}
+
+	if len(res) > 0 {
+		return "[\n" + res[:len(res)-2] + "]"
+	} else {
+		return "[]"
+	}
 }

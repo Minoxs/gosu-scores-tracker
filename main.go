@@ -11,5 +11,7 @@ func main() {
 		Username: "minoxs",
 	}
 	Client.Login()
-	fmt.Println("Recent Scores: ", Client.GetRecentScores())
+
+	scores := Client.GetRecentScores()
+	fmt.Println("Recent Scores: ", scores)
 }
