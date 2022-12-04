@@ -1,7 +1,9 @@
 package main
 
+import "osu-phantom/libgo"
+
 func main() {
-	//libgo.GetPP()
+	libgo.GetPP()
 	//Client := &client.PhantomClient{
 	//	Username: "minoxs",
 	//}

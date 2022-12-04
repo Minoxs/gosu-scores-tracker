@@ -1,23 +1,23 @@
 package libgo
 
-// #define OPPAI_IMPLEMENTATION
-// #include "../libc/oppai.c"
+/*
+#cgo CFLAGS: -I ../inc
+#cgo LDFLAGS: -L ../libc -lperf -lstdc++
+#include "./library.h"
+*/
 import "C"
-import "fmt"
+import (
+	"fmt"
+	"log"
+)
 
 func GetPP() {
-	const stdinString string = "-"
-	ez := C.ezpp_new()
-	C.ezpp_set_mods(ez, C.MODS_HR)
-	C.ezpp_set_accuracy(ez, 37, 4)
-	C.ezpp_set_nmiss(ez, 0)
-	C.ezpp_set_combo(ez, 476)
-	C.ezpp_set_aim_stars(ez, 3.06299)
-	C.ezpp_set_speed_stars(ez, 2.21616)
-	C.ezpp(ez, C.CString(stdinString))
-	fmt.Println(C.ezpp_pp(ez))
-	fmt.Println(C.ezpp_accuracy_percent(ez))
-	fmt.Println(C.ezpp_aim_stars(ez))
-	fmt.Println(C.ezpp_speed_stars(ez))
-	defer C.ezpp_free(ez)
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Recovered from: ", r)
+		}
+	}()
+
+	fmt.Println(C.test())
+	C.hello()
 }
