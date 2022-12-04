@@ -28,6 +28,7 @@ type beatmap struct {
 	CS            float32 `json:"cs"`
 	HP            float32 `json:"drain"`
 	HitLength     int     `json:"hit_length"`
+	URL           string  `json:"url"`
 }
 
 func (b beatmap) maxCombo() int {
@@ -180,16 +181,28 @@ func (s Scores) String() (res string) {
 	for _, score := range s {
 		res += fmt.Sprintf(
 			"ID=%d\n"+
-				"Accuracy=%.2f\n"+
+				"Accuracy=%f\n"+
 				"Mods=%v\n"+
 				"Score=%d\n"+
 				"PP=%.0f\n"+
+				"300=%d\n"+
+				"100=%d\n"+
+				"050=%d\n"+
+				"MIS=%d\n"+
+				"COM=%d\n"+
+				"URL=%s\n"+
 				"-\n",
 			score.ID,
 			score.Accuracy,
 			score.Mods,
 			score.Score,
 			score.PP,
+			score.Statistics.Count300,
+			score.Statistics.Count100,
+			score.Statistics.Count050,
+			score.Statistics.CountMiss,
+			score.MaxCombo,
+			score.Beatmap.URL,
 		)
 	}
 
