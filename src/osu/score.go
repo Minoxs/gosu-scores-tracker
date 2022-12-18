@@ -2,6 +2,7 @@ package osu
 
 import (
 	"fmt"
+	"time"
 )
 
 type statistics struct {
@@ -32,13 +33,14 @@ type beatmap struct {
 type Score struct {
 	ID         int        `json:"id"`
 	UserID     int        `json:"user_id"`
+	CreatedAt  time.Time  `json:"created_at"`
 	Accuracy   float32    `json:"accuracy"`
 	Mods       []string   `json:"mods"`
 	Score      int        `json:"score"`
 	MaxCombo   int        `json:"max_combo"`
 	Passed     bool       `json:"passed"`
 	Statistics statistics `json:"statistics"`
-	PP         float32    `json:"pp"`
+	PP         float64    `json:"pp"`
 	Mode       string     `json:"mode"`
 	Beatmap    beatmap    `json:"beatmap"`
 }
@@ -78,4 +80,15 @@ func (s Scores) String() (res string) {
 	} else {
 		return "[]"
 	}
+}
+
+// GetPP returns PP value of score
+// If PP from play is 0, will download beatmap and calculate manually
+func (s Score) GetPP() float64 {
+	if s.PP != 0 {
+		return s.PP
+	}
+
+	// Will calculate when needed
+	return 0
 }

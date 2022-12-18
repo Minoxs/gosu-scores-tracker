@@ -3,6 +3,7 @@ package osu
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -36,7 +37,7 @@ func createRequestBody(i interface{}) io.Reader {
 	return bytes.NewBuffer(data)
 }
 
-func GetGuestToken(clientID int, clientSecret string) *GuestToken {
+func GetGuestToken(clientID int, clientSecret string) (*GuestToken, error) {
 	body := authGrant{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
@@ -46,17 +47,15 @@ func GetGuestToken(clientID int, clientSecret string) *GuestToken {
 	r, err := http.Post(buildOAUTHUrl("token"), JSON, createRequestBody(body))
 
 	if err != nil {
-		fmt.Println(err)
-		return nil
+		return nil, err
 	}
 
 	if r.StatusCode == 200 {
 		res := &GuestToken{}
 		_ = json.NewDecoder(r.Body).Decode(res)
-		return res
+		return res, nil
 	} else {
-		fmt.Printf("StatusCode=%d", r.StatusCode)
-		return nil
+		return nil, errors.New("status_code=" + r.Status)
 	}
 }
 
@@ -83,7 +82,7 @@ func GetUserID(token *GuestToken, username string) (int, error) {
 }
 
 func GetRecentScores(token *GuestToken, userid int) []Score {
-	endpoint := fmt.Sprintf("users/%d/scores/recent/?mode=osu&limit=25", userid)
+	endpoint := fmt.Sprintf("users/%d/scores/recent/?mode=osu&limit=10", userid)
 
 	req, _ := http.NewRequest(GET, APIv2URL(endpoint), nil)
 	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
