@@ -1,8 +1,8 @@
 package client
 
 import (
-	"osu-phantom/osu"
-	"osu-phantom/utils"
+	"osu-phantom/src/osu"
+	"osu-phantom/src/utils"
 )
 
 var (

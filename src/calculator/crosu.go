@@ -1,12 +1,12 @@
-package libgo
+package calculator
 
 /*
 	This package handles the bridge between Go and C code
 */
 
 /*
-#cgo CFLAGS: -I ../deps/crosu-pp/bindings
-#cgo LDFLAGS: -L ../deps/crosu-pp/target/release -lcrosu_pp
+#cgo CFLAGS: -I ../../deps/crosu-pp/bindings
+#cgo LDFLAGS: -L ../../deps/crosu-pp/target/release -lcrosu_pp
 #include "crosu.h"
 */
 import "C"

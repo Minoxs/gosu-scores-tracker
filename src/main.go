@@ -1,6 +1,8 @@
 package main
 
-import "osu-phantom/libgo"
+import (
+	"osu-phantom/src/calculator"
+)
 
 func main() {
 	//var file, _ = ioutil.ReadFile("test.osu")
@@ -9,7 +11,7 @@ func main() {
 	//var res, _ = http.DefaultClient.Do(req)
 	//io.Copy(os.Stdout, res.Body)
 
-	libgo.GetPP()
+	calculator.GetPP()
 	//Client := &client.PhantomClient{
 	//	Username: "minoxs",
 	//}
