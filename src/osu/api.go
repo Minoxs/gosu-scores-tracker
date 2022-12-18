@@ -6,13 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 )
 
 const (
-	OAUTH_URL = "https://osu.ppy.sh/oauth"
-	API_V2    = "https://osu.ppy.sh/api/v2"
+	BASE_URL  = "https://osu.ppy.sh"
+	OAUTH_URL = BASE_URL + "/oauth"
+	API_V2    = BASE_URL + "/api/v2"
 
 	GET  = "GET"
 	POST = "POST"
@@ -123,4 +125,26 @@ func GetBeatmapScores(token *GuestToken, userID int, beatmapID int) []Score {
 		return nil
 	}
 	return s.Scores
+}
+
+// TODO support mode
+func DownloadBeatmap(id int) (buf []byte, err error) {
+	var url = BASE_URL + "/osu/" + fmt.Sprintf("%d", id)
+	var res *http.Response
+
+	res, err = http.Get(url)
+	if err != nil {
+		return
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != 200 {
+		err = errors.New("status_code=" + res.Status)
+		return
+	}
+
+	buf, err = ioutil.ReadAll(res.Body)
+	fmt.Println("BeatmapSize: ", len(buf)/1000, "Kb")
+
+	return
 }

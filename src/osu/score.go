@@ -2,7 +2,10 @@ package osu
 
 import (
 	"fmt"
+	"log"
 	"time"
+
+	"osu-phantom/src/calculator"
 )
 
 type statistics struct {
@@ -82,13 +85,42 @@ func (s Scores) String() (res string) {
 	}
 }
 
+func (s Score) String() string {
+	return fmt.Sprintf(
+		"ID=%d : Mode=%s : Mods=%v : Score=%d : PP=%.0f",
+		s.ID,
+		s.Mode,
+		s.Mods,
+		s.Score,
+		s.PP,
+	)
+}
+
 // GetPP returns PP value of score
 // If PP from play is 0, will download beatmap and calculate manually
-func (s Score) GetPP() float64 {
-	if s.PP != 0 {
-		return s.PP
+func (s *Score) GetPP() float64 {
+	if s.PP == 0 {
+		// Download beatmap
+		var beatmap, err = DownloadBeatmap(s.Beatmap.ID)
+		if err != nil {
+			log.Println(err)
+			return 0
+		}
+
+		// Calculate pp
+		s.PP = calculator.GetPPFromMap(
+			beatmap,
+			s.MaxCombo,
+			s.Statistics.Count300,
+			s.Statistics.Count100,
+			s.Statistics.Count050,
+			s.Statistics.CountMiss,
+			calculator.ModType(0).FromStringArray(s.Mods),
+			calculator.GameMode(0).FromString(s.Mode),
+		)
+
+		fmt.Println("Calculated PP: ", s.PP)
 	}
 
-	// Will calculate when needed
-	return 0
+	return s.PP
 }
