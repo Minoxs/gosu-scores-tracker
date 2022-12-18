@@ -85,14 +85,15 @@ func (s Scores) String() (res string) {
 	}
 }
 
-func (s Score) String() string {
+func (s *Score) String() string {
 	return fmt.Sprintf(
-		"ID=%d : Mode=%s : Mods=%v : Score=%d : PP=%.0f",
+		"|ID=%d : Mode=%s : Mods=%v : Score=%d : PP=%.0f : BeatmapID=%d|",
 		s.ID,
 		s.Mode,
 		s.Mods,
 		s.Score,
 		s.PP,
+		s.Beatmap.ID,
 	)
 }
 
@@ -119,7 +120,7 @@ func (s *Score) GetPP() float64 {
 			calculator.GameMode(0).FromString(s.Mode),
 		)
 
-		fmt.Println("Calculated PP: ", s.PP)
+		log.Println("Calculated PP: ", s.PP)
 	}
 
 	return s.PP

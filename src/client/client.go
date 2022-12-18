@@ -1,7 +1,7 @@
 package client
 
 import (
-	"fmt"
+	"log"
 	"time"
 
 	"osu-phantom/src/osu"
@@ -32,75 +32,59 @@ func Login(username string) (client *PhantomClient, err error) {
 }
 
 func (c *PhantomClient) Loop() {
-	var maxIdle = (int64)((5 * time.Minute).Seconds())
-	var lastSignal = time.Now().Unix()
-	var pool = time.NewTimer(0 * time.Minute)
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("Recovered from panic: ", r)
+		}
+	}()
+
+	var (
+		lastSignal = (int64)(0)
+		maxIdle    = (int64)((15 * time.Minute).Seconds())
+		pool       = time.NewTimer(0 * time.Minute)
+		ranking    = Ranking{}
+	)
 	defer pool.Stop()
 
-	const RANK_SIZE = 100
-	var ranking [RANK_SIZE]*osu.Score
-	for i, _ := range ranking {
-		ranking[i] = nil
-	}
-
-	fmt.Println("Entering loop")
+	log.Println("Entering loop")
 	defer func() {
-		fmt.Println("Exiting loop")
+		log.Println("Exiting loop")
 	}()
 
 	for {
 		select {
 		case <-pool.C:
-			fmt.Println("Getting new scores...")
+			log.Println("Getting new scores...")
 			var scores = c.GetRecentScores()
-			// Check for new scores
+			log.Println("Score count: ", len(scores))
+
+			// Check if there are new scores
 			if len(scores) == 0 || scores[0].CreatedAt.Unix() == lastSignal {
-				fmt.Println("No updates...")
+				log.Println("No updates...")
 				// Stop if idle for too long
 				if time.Now().Unix()-lastSignal > maxIdle {
 					return
 				}
+				// No new scores
 				continue
 			}
-			lastSignal = scores[0].CreatedAt.Unix()
 
+			// Add new scores to the ranks
 			for _, score := range scores {
-				fmt.Println(score)
-
-				// Add to ranking in the right place
-				var pp = score.GetPP()
-				for i, s := range ranking {
-					// Ranking ended
-					if s == nil {
-						ranking[i] = &score
-						break
-					}
-					// Check if score is better
-					if pp > ranking[i].PP {
-						// Shift all the rankings
-						for j := RANK_SIZE - 2; j >= i; j-- {
-							ranking[j+1] = ranking[j]
-						}
-						// Add score
-						ranking[i] = &score
-						break
-					}
-				}
-			}
-
-			// Print ranking
-			var totalPP = 0.0
-			for _, score := range ranking {
-				if score == nil {
+				if score.CreatedAt.Unix() <= lastSignal {
 					break
 				}
 
-				fmt.Println("ID: ", score.ID, "PP: ", score.PP)
-				totalPP += score.PP
+				log.Println("Potential new score: ", score.ID)
+				ranking.AddScore(score)
 			}
-			fmt.Println("PP Total: ", totalPP)
 
-			pool.Reset(1 * time.Minute)
+			// Update last signal
+			lastSignal = scores[0].CreatedAt.Unix()
+
+			// Reset timer
+			pool.Reset(5 * time.Minute)
+			log.Println(&ranking)
 		}
 	}
 }

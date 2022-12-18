@@ -144,7 +144,7 @@ func DownloadBeatmap(id int) (buf []byte, err error) {
 	}
 
 	buf, err = ioutil.ReadAll(res.Body)
-	fmt.Println("BeatmapSize: ", len(buf)/1000, "Kb")
+	log.Println("BeatmapSize: ", len(buf)/1000, "Kb")
 
 	return
 }
