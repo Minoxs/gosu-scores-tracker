@@ -1,6 +1,9 @@
 package main
 
 import (
+	"fmt"
+	"io/ioutil"
+
 	"osu-phantom/src/calculator"
 )
 
@@ -11,7 +14,9 @@ func main() {
 	//var res, _ = http.DefaultClient.Do(req)
 	//io.Copy(os.Stdout, res.Body)
 
-	calculator.GetPP()
+	var buf, _ = ioutil.ReadFile("./test.osu")
+
+	fmt.Println(calculator.GetPPFromMap(buf, 476, 281, 37, 4, 0, calculator.HR, calculator.OSU))
 	//Client := &client.PhantomClient{
 	//	Username: "minoxs",
 	//}
