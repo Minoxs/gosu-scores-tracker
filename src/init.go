@@ -1,11 +1,18 @@
 package main
 
-import "errors"
+import (
+	"osu-phantom/src/server"
+)
 
-func initRequired() error {
-	return errors.New("TODO IMPLEMENT")
+func (p *program) initRequired() (err error) {
+	p.server, err = server.New()
+	if err != nil {
+		return err
+	}
+
+	return
 }
 
-func initModules() {
+func (p *program) initModules() {
 
 }

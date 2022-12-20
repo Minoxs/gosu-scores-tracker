@@ -7,7 +7,15 @@ import (
 	"github.com/kardianos/service"
 )
 
-type program struct{}
+type (
+	module interface {
+		Stop() error
+	}
+
+	program struct {
+		server module
+	}
+)
 
 func (p *program) Start(_ service.Service) (err error) {
 	defer func() {
@@ -17,15 +25,15 @@ func (p *program) Start(_ service.Service) (err error) {
 		}
 	}()
 
-	err = initRequired()
+	err = p.initRequired()
 	if err != nil {
 		return err
 	}
-	go initModules()
+	go p.initModules()
 
 	return nil
 }
 
 func (p *program) Stop(_ service.Service) error {
-	return nil
+	return p.server.Stop()
 }
