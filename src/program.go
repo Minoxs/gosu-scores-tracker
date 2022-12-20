@@ -12,8 +12,13 @@ type (
 		Stop() error
 	}
 
+	thread interface {
+		module
+		Loop()
+	}
+
 	program struct {
-		server module
+		server thread
 	}
 )
 

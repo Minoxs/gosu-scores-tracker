@@ -5,29 +5,23 @@ import (
 	"time"
 
 	"osu-phantom/src/osu"
-	"osu-phantom/src/utils"
 )
 
-var (
-	CLIENT_ID     = utils.GetEnv("CLIENT_ID").Integer(0)
-	CLIENT_SECRET = utils.GetEnv("CLIENT_SECRET").String()
-)
-
-type PhantomClient struct {
-	Username string
-	userID   int
-	token    *osu.GuestToken
-}
-
-func Login(username string) (client *PhantomClient, err error) {
-	client = &PhantomClient{Username: username}
-
-	client.token, err = osu.GetGuestToken(CLIENT_ID, CLIENT_SECRET)
-	if err != nil {
-		return
+type (
+	authProvider interface {
+		GetToken() *osu.GuestToken
 	}
-	client.userID, err = osu.GetUserID(client.token, client.Username)
 
+	PhantomClient struct {
+		Username string
+		Provider authProvider
+		userID   int
+	}
+)
+
+func Login(provider authProvider, username string) (client *PhantomClient, err error) {
+	client = &PhantomClient{Username: username, Provider: provider}
+	client.userID, err = osu.GetUserID(provider.GetToken(), client.Username)
 	return
 }
 
@@ -90,9 +84,9 @@ func (c *PhantomClient) Loop() {
 }
 
 func (c *PhantomClient) GetRecentScores() osu.Scores {
-	return osu.GetRecentScores(c.token, c.userID)
+	return osu.GetRecentScores(c.Provider.GetToken(), c.userID)
 }
 
 func (c *PhantomClient) GetBeatmapScores(beatmapID int) osu.Scores {
-	return osu.GetBeatmapScores(c.token, c.userID, beatmapID)
+	return osu.GetBeatmapScores(c.Provider.GetToken(), c.userID, beatmapID)
 }

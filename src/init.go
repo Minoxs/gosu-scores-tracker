@@ -14,5 +14,5 @@ func (p *program) initRequired() (err error) {
 }
 
 func (p *program) initModules() {
-
+	go p.server.Loop()
 }
