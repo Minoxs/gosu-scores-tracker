@@ -1,10 +1,10 @@
-package main
+package phantom
 
 import (
 	"osu-phantom/src/server"
 )
 
-func (p *program) initRequired() (err error) {
+func (p *Program) initRequired() (err error) {
 	p.server, err = server.New()
 	if err != nil {
 		return err
@@ -13,6 +13,6 @@ func (p *program) initRequired() (err error) {
 	return
 }
 
-func (p *program) initModules() {
+func (p *Program) initModules() {
 	go p.server.Loop()
 }

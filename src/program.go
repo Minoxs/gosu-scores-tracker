@@ -1,4 +1,4 @@
-package main
+package phantom
 
 import (
 	"errors"
@@ -17,12 +17,12 @@ type (
 		Loop()
 	}
 
-	program struct {
+	Program struct {
 		server thread
 	}
 )
 
-func (p *program) Start(_ service.Service) (err error) {
+func (p *Program) Start(_ service.Service) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Println(r)
@@ -39,6 +39,6 @@ func (p *program) Start(_ service.Service) (err error) {
 	return nil
 }
 
-func (p *program) Stop(_ service.Service) error {
+func (p *Program) Stop(_ service.Service) error {
 	return p.server.Stop()
 }

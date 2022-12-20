@@ -5,11 +5,12 @@ import (
 	"os"
 
 	"github.com/kardianos/service"
+	"osu-phantom/src"
 	"osu-phantom/src/config"
 )
 
 func main() {
-	var p = &program{}
+	var p = &phantom.Program{}
 	var s, err = service.New(p, config.Service)
 	if err != nil {
 		log.Fatal(err)
