@@ -1,15 +1,19 @@
 package server
 
 import (
+	"errors"
+	"fmt"
 	"log"
+	"net"
 
-	"osu-phantom/src/client"
 	"osu-phantom/src/config"
 	"osu-phantom/src/osu"
+	"osu-phantom/src/utils"
 )
 
 type PhantomServer struct {
-	token *osu.GuestToken
+	token    *osu.GuestToken
+	listener net.Listener
 }
 
 func New() (srv *PhantomServer, err error) {
@@ -18,18 +22,37 @@ func New() (srv *PhantomServer, err error) {
 	return
 }
 
-func (p *PhantomServer) GetToken() *osu.GuestToken {
-	return p.token
+func (s *PhantomServer) Stop() error {
+	if s.listener == nil {
+		return errors.New("phantom server already stopped")
+	}
+	return s.listener.Close()
+}
+
+func (s *PhantomServer) GetToken() *osu.GuestToken {
+	return s.token
 }
 
 func (s *PhantomServer) Loop() {
-	var test, err = client.Login(s, "minoxs")
-	if err != nil {
-		log.Println(err)
-	}
-	go test.Loop()
-}
+	// Panic handler
+	defer utils.PanicHandler("PhantomServer.Loop")
 
-func (s *PhantomServer) Stop() error {
-	return nil
+	// Create TCP socket
+	var err error
+	s.listener, err = net.Listen("tcp", fmt.Sprintf("localhost:%d", config.SERVER_PORT))
+	if err != nil {
+		log.Println("PhantomServer.Loop :", err)
+		return
+	}
+
+	// Listen for connections
+	for {
+		var conn net.Conn
+		conn, err = s.listener.Accept()
+		if err != nil {
+			log.Println("PhantomServer.Loop : error accepting connection :", err)
+			continue
+		}
+		go s.handleConnection(conn)
+	}
 }
