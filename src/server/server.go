@@ -1,6 +1,9 @@
 package server
 
 import (
+	"log"
+
+	"osu-phantom/src/client"
 	"osu-phantom/src/config"
 	"osu-phantom/src/osu"
 )
@@ -15,8 +18,16 @@ func New() (srv *PhantomServer, err error) {
 	return
 }
 
-func (s *PhantomServer) Loop() {
+func (p *PhantomServer) GetToken() *osu.GuestToken {
+	return p.token
+}
 
+func (s *PhantomServer) Loop() {
+	var test, err = client.Login(s, "minoxs")
+	if err != nil {
+		log.Println(err)
+	}
+	go test.Loop()
 }
 
 func (s *PhantomServer) Stop() error {

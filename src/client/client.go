@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -13,9 +14,11 @@ type (
 	}
 
 	PhantomClient struct {
-		Username string
-		Provider authProvider
-		userID   int
+		Username   string
+		Provider   authProvider
+		userID     int
+		ranking    Ranking
+		lastUpdate int64
 	}
 )
 
@@ -28,65 +31,72 @@ func Login(provider authProvider, username string) (client *PhantomClient, err e
 func (c *PhantomClient) Loop() {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Println("Recovered from panic: ", r)
+			c.log("Recovered from panic: ", r)
 		}
 	}()
 
 	var (
-		lastSignal = (int64)(0)
-		maxIdle    = (int64)((15 * time.Minute).Seconds())
-		pool       = time.NewTimer(0 * time.Minute)
-		ranking    = Ranking{}
+		maxIdle = (int64)((15 * time.Minute).Seconds())
+		pool    = time.NewTimer(0 * time.Minute)
 	)
 	defer pool.Stop()
 
-	log.Println("Entering loop")
+	c.log("Entering loop")
 	defer func() {
-		log.Println("Exiting loop")
+		c.log("Exiting loop")
 	}()
 
 	for {
 		select {
 		case <-pool.C:
-			log.Println("Getting new scores...")
-			var scores = c.GetRecentScores()
-			log.Println("Score count: ", len(scores))
+			c.log("Getting new scores...")
 
-			// Check if there are new scores
-			if len(scores) == 0 || scores[0].CreatedAt.Unix() == lastSignal {
-				log.Println("No updates...")
-				// Stop if idle for too long
-				if time.Now().Unix()-lastSignal > maxIdle {
-					return
-				}
-				// No new scores
-				continue
+			// Stop if idle for too long
+			if !c.update() && time.Now().Unix()-c.lastUpdate > maxIdle {
+				return
 			}
-
-			// Add new scores to the ranks
-			for _, score := range scores {
-				if score.CreatedAt.Unix() <= lastSignal {
-					break
-				}
-
-				log.Println("Potential new score: ", score.ID)
-				ranking.AddScore(score)
-			}
-
-			// Update last signal
-			lastSignal = scores[0].CreatedAt.Unix()
 
 			// Reset timer
 			pool.Reset(5 * time.Minute)
-			log.Println(&ranking)
+			c.log(&c.ranking)
 		}
 	}
 }
 
-func (c *PhantomClient) GetRecentScores() osu.Scores {
+func (c *PhantomClient) update() bool {
+	var scores = c.getRecentScores()
+	c.log("Score count: ", len(scores))
+
+	// Check if there are new scores
+	if len(scores) == 0 || scores[0].CreatedAt.Unix() == c.lastUpdate {
+		c.log("No updates...")
+		return false
+	}
+
+	// Add new scores to the ranks
+	for _, score := range scores {
+		if score.CreatedAt.Unix() <= c.lastUpdate {
+			break
+		}
+
+		c.log("Potential new score: ", score.ID)
+		c.ranking.AddScore(score)
+	}
+
+	// Update last signal
+	c.lastUpdate = scores[0].CreatedAt.Unix()
+	return true
+}
+
+func (c *PhantomClient) log(v ...any) {
+	var l = "PhantomClient." + c.Username + " : " + fmt.Sprint(v...)
+	log.Println(l)
+}
+
+func (c *PhantomClient) getRecentScores() osu.Scores {
 	return osu.GetRecentScores(c.Provider.GetToken(), c.userID)
 }
 
-func (c *PhantomClient) GetBeatmapScores(beatmapID int) osu.Scores {
+func (c *PhantomClient) getBeatmapScores(beatmapID int) osu.Scores {
 	return osu.GetBeatmapScores(c.Provider.GetToken(), c.userID, beatmapID)
 }
