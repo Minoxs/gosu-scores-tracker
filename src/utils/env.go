@@ -7,7 +7,7 @@ import (
 
 type StringObject string
 
-func ParseInt[T ConInteger](s string, d T) (T, error) {
+func ParseInt[T AInteger](s string, d T) (T, error) {
 	c, err := strconv.Atoi(s)
 	if err != nil {
 		return d, err
