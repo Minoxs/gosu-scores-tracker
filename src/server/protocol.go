@@ -59,13 +59,7 @@ func (m *PMessage[BodyType]) FromStream(buf io.Reader) (err error) {
 	}
 
 	// Process body
-	if binary.Size(m.Body) >= 0 {
-		// Fast serialization
-		err = binary.Read(buf, binary.LittleEndian, m.Body)
-	} else {
-		// Fallback on reflection
-		err = unserializeGeneric[BodyType](buf, &m.Body)
-	}
+	err = unserializeGeneric[BodyType](buf, &m.Body)
 	if err != nil {
 		return
 	}
@@ -91,13 +85,7 @@ func (m *PMessage[BodyType]) ToStream(buf io.Writer) (err error) {
 	}
 
 	// Write body
-	if binary.Size(m.Body) >= 0 {
-		// Fast serialization
-		err = binary.Write(buf, binary.LittleEndian, m.Body)
-	} else {
-		// Fallback on reflection
-		err = serializeGeneric[BodyType](buf, m.Body)
-	}
+	err = serializeGeneric[BodyType](buf, m.Body)
 	if err != nil {
 		return
 	}
