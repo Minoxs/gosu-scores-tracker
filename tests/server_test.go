@@ -15,7 +15,7 @@ func panicRecover(t *testing.T, name string) {
 
 func TestProtocol(t *testing.T) {
 	defer panicRecover(t, "TestProtocol")
-	
+
 	testHeader(t)
 	testMessage(t)
 }
@@ -25,7 +25,7 @@ func testHeader(t *testing.T) {
 
 	var (
 		err       error
-		expHeader = server.PHeader{
+		expHeader = server.Header{
 			ID:      0,
 			Version: 1,
 		}
@@ -37,7 +37,7 @@ func testHeader(t *testing.T) {
 		t.Fatal("Error writing:", err)
 	}
 
-	var resHeader server.PHeader
+	var resHeader server.Header
 	err = resHeader.FromStream(&buf)
 	if err != nil {
 		t.Fatal("Error reading:", err)
@@ -62,8 +62,8 @@ func testMessage(t *testing.T) {
 
 	var (
 		err error
-		exp = server.PMessage[MockBody]{
-			Header: server.PHeader{
+		exp = server.Message[MockBody]{
+			Header: server.Header{
 				ID:      1,
 				Version: 1,
 			},
@@ -99,7 +99,7 @@ func testMessage(t *testing.T) {
 		t.Fatal("Error writing:", err)
 	}
 
-	var res server.PMessage[MockBody]
+	var res server.Message[MockBody]
 	err = res.FromStream(&buf)
 	if err != nil {
 		t.Fatal("Error reading:", err)

@@ -8,13 +8,13 @@ import (
 )
 
 type (
-	PHeader struct {
+	Header struct {
 		ID      uint16
 		Version uint8
 	}
 
-	PMessage[BodyType any] struct {
-		Header PHeader
+	Message[BodyType any] struct {
+		Header Header
 		Body   BodyType
 	}
 )
@@ -29,7 +29,7 @@ const (
 	MissingEOM = "there are bytes left on the message"
 )
 
-func (h *PHeader) FromStream(buf io.Reader) (err error) {
+func (h *Header) FromStream(buf io.Reader) (err error) {
 	var flag uint16
 	err = binary.Read(buf, binary.LittleEndian, &flag)
 	if err != nil {
@@ -42,7 +42,7 @@ func (h *PHeader) FromStream(buf io.Reader) (err error) {
 	return binary.Read(buf, binary.LittleEndian, h)
 }
 
-func (h *PHeader) ToStream(buf io.Writer) (err error) {
+func (h *Header) ToStream(buf io.Writer) (err error) {
 	err = binary.Write(buf, binary.LittleEndian, messageStart)
 	if err != nil {
 		return
@@ -51,7 +51,7 @@ func (h *PHeader) ToStream(buf io.Writer) (err error) {
 	return binary.Write(buf, binary.LittleEndian, h)
 }
 
-func (m *PMessage[BodyType]) FromStream(buf io.Reader) (err error) {
+func (m *Message[BodyType]) FromStream(buf io.Reader) (err error) {
 	// Process header
 	err = m.Header.FromStream(buf)
 	if err != nil {
@@ -59,7 +59,7 @@ func (m *PMessage[BodyType]) FromStream(buf io.Reader) (err error) {
 	}
 
 	// Process body
-	err = unserializeGeneric[BodyType](buf, &m.Body)
+	err = Deserialize[BodyType](buf, &m.Body)
 	if err != nil {
 		return
 	}
@@ -77,7 +77,7 @@ func (m *PMessage[BodyType]) FromStream(buf io.Reader) (err error) {
 	return
 }
 
-func (m *PMessage[BodyType]) ToStream(buf io.Writer) (err error) {
+func (m *Message[BodyType]) ToStream(buf io.Writer) (err error) {
 	// Write header
 	err = m.Header.ToStream(buf)
 	if err != nil {
@@ -85,7 +85,7 @@ func (m *PMessage[BodyType]) ToStream(buf io.Writer) (err error) {
 	}
 
 	// Write body
-	err = serializeGeneric[BodyType](buf, m.Body)
+	err = Serialize[BodyType](buf, m.Body)
 	if err != nil {
 		return
 	}
@@ -94,7 +94,7 @@ func (m *PMessage[BodyType]) ToStream(buf io.Writer) (err error) {
 	return binary.Write(buf, binary.LittleEndian, messageEnd)
 }
 
-func serializeGeneric[T any](buf io.Writer, data T) (err error) {
+func Serialize[T any](buf io.Writer, data T) (err error) {
 	var face = reflect.ValueOf(data)
 
 	for i := 0; i < face.NumField(); i++ {
@@ -142,7 +142,7 @@ func serializeGeneric[T any](buf io.Writer, data T) (err error) {
 	return nil
 }
 
-func unserializeGeneric[T any](buf io.Reader, data *T) (err error) {
+func Deserialize[T any](buf io.Reader, data *T) (err error) {
 	var face = reflect.Indirect(reflect.ValueOf(data))
 
 	for i := 0; i < face.NumField(); i++ {
