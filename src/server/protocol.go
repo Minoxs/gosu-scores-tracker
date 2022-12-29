@@ -29,9 +29,13 @@ const (
 	MissingEOM = "there are bytes left on the message"
 )
 
+var (
+	endianness = binary.LittleEndian
+)
+
 func (h *Header) FromStream(buf io.Reader) (err error) {
 	var flag uint16
-	err = binary.Read(buf, binary.LittleEndian, &flag)
+	err = binary.Read(buf, endianness, &flag)
 	if err != nil {
 		return
 	}
@@ -39,16 +43,16 @@ func (h *Header) FromStream(buf io.Reader) (err error) {
 		return errors.New(MissingSOM)
 	}
 
-	return binary.Read(buf, binary.LittleEndian, h)
+	return binary.Read(buf, endianness, h)
 }
 
 func (h *Header) ToStream(buf io.Writer) (err error) {
-	err = binary.Write(buf, binary.LittleEndian, messageStart)
+	err = binary.Write(buf, endianness, messageStart)
 	if err != nil {
 		return
 	}
 
-	return binary.Write(buf, binary.LittleEndian, h)
+	return binary.Write(buf, endianness, h)
 }
 
 func (m *Message[BodyType]) FromStream(buf io.Reader) (err error) {
@@ -66,7 +70,7 @@ func (m *Message[BodyType]) FromStream(buf io.Reader) (err error) {
 
 	// Process footer
 	var flag uint16
-	err = binary.Read(buf, binary.LittleEndian, &flag)
+	err = binary.Read(buf, endianness, &flag)
 	if err != nil {
 		return
 	}
@@ -91,7 +95,7 @@ func (m *Message[BodyType]) ToStream(buf io.Writer) (err error) {
 	}
 
 	// Write footer and return
-	return binary.Write(buf, binary.LittleEndian, messageEnd)
+	return binary.Write(buf, endianness, messageEnd)
 }
 
 func Serialize[T any](buf io.Writer, data T) (err error) {
@@ -107,13 +111,13 @@ func Serialize[T any](buf io.Writer, data T) (err error) {
 		if bSize >= 0 {
 			// Fixed size type
 			if fld.Kind() == reflect.Slice {
-				err = binary.Write(buf, binary.LittleEndian, uint32(bSize))
+				err = binary.Write(buf, endianness, uint32(bSize))
 				if err != nil {
 					return
 				}
 			}
 
-			err = binary.Write(buf, binary.LittleEndian, val)
+			err = binary.Write(buf, endianness, val)
 			if err != nil {
 				return
 			}
@@ -122,12 +126,12 @@ func Serialize[T any](buf io.Writer, data T) (err error) {
 			switch fld.Kind() {
 			case reflect.String:
 				var size = fld.Len()
-				err = binary.Write(buf, binary.LittleEndian, uint16(size))
+				err = binary.Write(buf, endianness, uint16(size))
 				if err != nil {
 					return
 				}
 				for j := 0; j < size; j++ {
-					err = binary.Write(buf, binary.LittleEndian, fld.Index(j).Interface())
+					err = binary.Write(buf, endianness, fld.Index(j).Interface())
 					if err != nil {
 						return
 					}
@@ -156,7 +160,7 @@ func Deserialize[T any](buf io.Reader, data *T) (err error) {
 			// Fixed size type
 			if fld.Kind() == reflect.Slice {
 				var tmp uint32
-				err = binary.Read(buf, binary.LittleEndian, &tmp)
+				err = binary.Read(buf, endianness, &tmp)
 				if err != nil {
 					return
 				}
@@ -164,7 +168,7 @@ func Deserialize[T any](buf io.Reader, data *T) (err error) {
 				fld.Set(reflect.MakeSlice(fld.Type(), size, size))
 			}
 
-			err = binary.Read(buf, binary.LittleEndian, fld.Addr().Interface())
+			err = binary.Read(buf, endianness, fld.Addr().Interface())
 			if err != nil {
 				return
 			}
@@ -173,14 +177,14 @@ func Deserialize[T any](buf io.Reader, data *T) (err error) {
 			switch fld.Kind() {
 			case reflect.String:
 				var tmp uint16
-				err = binary.Read(buf, binary.LittleEndian, &tmp)
+				err = binary.Read(buf, endianness, &tmp)
 				if err != nil {
 					return
 				}
 				var size = int(tmp)
 				var strBuffer = make([]byte, size)
 				for j := 0; j < size; j++ {
-					err = binary.Read(buf, binary.LittleEndian, &strBuffer[j])
+					err = binary.Read(buf, endianness, &strBuffer[j])
 					if err != nil {
 						return
 					}
