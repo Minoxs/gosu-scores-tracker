@@ -22,6 +22,19 @@ func New() (srv *PhantomServer, err error) {
 	return
 }
 
+func (s *PhantomServer) Start() error {
+	// Create TCP socket
+	var err error
+	s.listener, err = net.Listen("tcp", fmt.Sprintf("localhost:%d", config.SERVER_PORT))
+	if err != nil {
+		return err
+	}
+
+	// Enter server loop
+	go s.Loop()
+	return nil
+}
+
 func (s *PhantomServer) Stop() error {
 	if s.listener == nil {
 		return errors.New("phantom server already stopped")
@@ -36,19 +49,15 @@ func (s *PhantomServer) GetToken() *osu.GuestToken {
 func (s *PhantomServer) Loop() {
 	// Panic handler
 	defer utils.PanicHandler("PhantomServer.Loop")
-
-	// Create TCP socket
-	var err error
-	s.listener, err = net.Listen("tcp", fmt.Sprintf("localhost:%d", config.SERVER_PORT))
-	if err != nil {
-		log.Println("PhantomServer.Loop :", err)
-		return
-	}
+	// Close connection when loop ends
+	defer func() {
+		_ = s.listener.Close()
+		s.listener = nil
+	}()
 
 	// Listen for connections
 	for {
-		var conn net.Conn
-		conn, err = s.listener.Accept()
+		var conn, err = s.listener.Accept()
 		if err != nil {
 			log.Println("PhantomServer.Loop : error accepting connection :", err)
 			continue
