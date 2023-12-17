@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	BASE_URL  = "https://osu.ppy.sh"
-	OAUTH_URL = BASE_URL + "/oauth"
-	API_V2    = BASE_URL + "/api/v2"
+	BaseURL  = "https://osu.ppy.sh"
+	OAuthURL = BaseURL + "/oauth"
+	ApiV2    = BaseURL + "/api/v2"
 
 	GET  = "GET"
 	POST = "POST"
@@ -22,16 +22,14 @@ const (
 	JSON = "application/json"
 )
 
-var (
-	CACHED_CLIENT = &http.Client{}
-)
+var CachedClient = &http.Client{}
 
 func buildOAUTHUrl(endpoint string) string {
-	return fmt.Sprintf("%s/%s", OAUTH_URL, endpoint)
+	return fmt.Sprintf("%s/%s", OAuthURL, endpoint)
 }
 
 func APIv2URL(endpoint string) string {
-	return fmt.Sprintf("%s/%s", API_V2, endpoint)
+	return fmt.Sprintf("%s/%s", ApiV2, endpoint)
 }
 
 func createRequestBody(i interface{}) io.Reader {
@@ -40,7 +38,7 @@ func createRequestBody(i interface{}) io.Reader {
 }
 
 func GetGuestToken(clientID int, clientSecret string) (*GuestToken, error) {
-	body := authGrant{
+	body := AuthGrant{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		GrantType:    "client_credentials",
@@ -67,7 +65,7 @@ func GetUserID(token *GuestToken, username string) (int, error) {
 	req, _ := http.NewRequest(GET, APIv2URL(endpoint), nil)
 	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
 
-	res, err := CACHED_CLIENT.Do(req)
+	res, err := CachedClient.Do(req)
 	if err != nil {
 		log.Printf("Error while sending GetUserID request: %s\n", err)
 		return 0, err
@@ -89,7 +87,7 @@ func GetRecentScores(token *GuestToken, userid int) []Score {
 	req, _ := http.NewRequest(GET, APIv2URL(endpoint), nil)
 	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
 
-	res, err := CACHED_CLIENT.Do(req)
+	res, err := CachedClient.Do(req)
 	if err != nil {
 		log.Printf("Error while sending GetUserID request: %s\n", err)
 		return nil
@@ -111,7 +109,7 @@ func GetBeatmapScores(token *GuestToken, userID int, beatmapID int) []Score {
 	req, _ := http.NewRequest(GET, APIv2URL(endpoint), nil)
 	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
 
-	res, err := CACHED_CLIENT.Do(req)
+	res, err := CachedClient.Do(req)
 	if err != nil {
 		log.Printf("Error while getting scores: %v", err)
 		return nil
@@ -129,7 +127,7 @@ func GetBeatmapScores(token *GuestToken, userID int, beatmapID int) []Score {
 
 // TODO support mode
 func DownloadBeatmap(id int) (buf []byte, err error) {
-	var url = BASE_URL + "/osu/" + fmt.Sprintf("%d", id)
+	var url = BaseURL + "/osu/" + fmt.Sprintf("%d", id)
 	var res *http.Response
 
 	res, err = http.Get(url)

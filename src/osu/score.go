@@ -3,9 +3,8 @@ package osu
 import (
 	"fmt"
 	"log"
+	"osu-phantom/src/osu/calculator"
 	"time"
-
-	"osu-phantom/src/calculator"
 )
 
 type statistics struct {
@@ -17,7 +16,7 @@ type statistics struct {
 	CountMiss int `json:"count_miss"`
 }
 
-type beatmap struct {
+type Beatmap struct {
 	ID            int     `json:"id"`
 	StarRating    float32 `json:"difficulty_rating"`
 	Status        string  `json:"status"`
@@ -45,7 +44,7 @@ type Score struct {
 	Statistics statistics `json:"statistics"`
 	PP         float64    `json:"pp"`
 	Mode       string     `json:"mode"`
-	Beatmap    beatmap    `json:"beatmap"`
+	Beatmap    Beatmap    `json:"beatmap"`
 }
 
 type Scores []Score
@@ -98,10 +97,10 @@ func (s *Score) String() string {
 }
 
 // GetPP returns PP value of score
-// If PP from play is 0, will download beatmap and calculate manually
+// If PP from play is 0, will download Beatmap and calculate manually
 func (s *Score) GetPP() float64 {
 	if s.PP == 0 {
-		// Download beatmap
+		// Download Beatmap
 		var beatmap, err = DownloadBeatmap(s.Beatmap.ID)
 		if err != nil {
 			log.Println(err)

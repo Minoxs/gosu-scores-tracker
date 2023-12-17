@@ -5,8 +5,8 @@ package calculator
 */
 
 /*
-#cgo CFLAGS: -I ../../deps/crosu-pp/bindings
-#cgo LDFLAGS: -L ../../deps/crosu-pp/target/release -lcrosu_pp
+#cgo CFLAGS: -I ../../../deps/crosu-pp/bindings
+#cgo LDFLAGS: -L ../../../deps/crosu-pp/target/release -lcrosu_pp
 #include "crosu.h"
 */
 import "C"

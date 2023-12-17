@@ -14,12 +14,12 @@ type User struct {
 	ID int `json:"id"`
 }
 
-type errorResponse struct {
+type ErrorResponse struct {
 	Error            string `json:"error"`
 	ErrorDescription string `json:"error_description"`
 }
 
-type authGrant struct {
+type AuthGrant struct {
 	ClientID     int    `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
 	GrantType    string `json:"grant_type"`

@@ -18,14 +18,14 @@ type PhantomServer struct {
 
 func New() (srv *PhantomServer, err error) {
 	srv = &PhantomServer{}
-	srv.token, err = osu.GetGuestToken(config.CLIENT_ID, config.CLIENT_SECRET)
+	srv.token, err = osu.GetGuestToken(config.ClientId, config.ClientSecret)
 	return
 }
 
 func (s *PhantomServer) Start() error {
 	// Create TCP socket
 	var err error
-	s.listener, err = net.Listen("tcp", fmt.Sprintf("localhost:%d", config.SERVER_PORT))
+	s.listener, err = net.Listen("tcp", fmt.Sprintf("localhost:%d", config.ServerPort))
 	if err != nil {
 		return err
 	}

@@ -7,11 +7,11 @@ import (
 	"osu-phantom/src/osu"
 )
 
-const RANK_SIZE = 100
+const RankSize = 100
 
 type Ranking struct {
 	count  int8
-	scores [RANK_SIZE]*osu.Score
+	scores [RankSize]*osu.Score
 }
 
 func (r *Ranking) String() string {
@@ -39,7 +39,7 @@ func (r *Ranking) AddScore(s osu.Score) {
 	}
 
 	// If score is out of the rankings, just leave
-	if i >= RANK_SIZE {
+	if i >= RankSize {
 		return
 	}
 
@@ -55,13 +55,13 @@ func (r *Ranking) AddScore(s osu.Score) {
 	}
 
 	// Increse count if ranks aren't full
-	if r.count < RANK_SIZE {
+	if r.count < RankSize {
 		r.count++
 	}
 
 	// Make sure range is valid
-	if j >= RANK_SIZE {
-		j = RANK_SIZE - 1
+	if j >= RankSize {
+		j = RankSize - 1
 	}
 	// Move scores
 	for k := j - 1; k >= i; k-- {
