@@ -17,13 +17,14 @@ type (
 		Provider   AuthProvider
 		userID     int
 		ranking    Ranking
-		lastUpdate int64
+		lastUpdate time.Time
 	}
 )
 
 func Login(provider AuthProvider, username string) (client *Client, err error) {
 	client = &Client{Username: username, Provider: provider}
 	client.userID, err = osu.GetUserID(provider.GetToken(), client.Username)
+	client.lastUpdate = time.Now()
 	return
 }
 
@@ -35,7 +36,7 @@ func (c *Client) Loop() {
 	}()
 
 	var (
-		maxIdle = (int64)((15 * time.Minute).Seconds())
+		maxIdle = 15 * time.Minute
 		pool    = time.NewTimer(0 * time.Minute)
 	)
 	defer pool.Stop()
@@ -51,7 +52,7 @@ func (c *Client) Loop() {
 			c.log("Getting new scores...")
 
 			// Stop if idle for too long
-			if !c.update() && time.Now().Unix()-c.lastUpdate > maxIdle {
+			if !c.update() && time.Now().Sub(c.lastUpdate) > maxIdle {
 				return
 			}
 
@@ -67,14 +68,14 @@ func (c *Client) update() bool {
 	c.log("Score count: ", len(scores))
 
 	// Check if there are new scores
-	if len(scores) == 0 || scores[0].CreatedAt.Unix() == c.lastUpdate {
+	if len(scores) == 0 || scores[0].CreatedAt.Equal(c.lastUpdate) {
 		c.log("No updates...")
 		return false
 	}
 
 	// Add new scores to the ranks
 	for _, score := range scores {
-		if score.CreatedAt.Unix() <= c.lastUpdate {
+		if score.CreatedAt.Before(c.lastUpdate) {
 			break
 		}
 
@@ -83,7 +84,7 @@ func (c *Client) update() bool {
 	}
 
 	// Update last signal
-	c.lastUpdate = scores[0].CreatedAt.Unix()
+	c.lastUpdate = scores[0].CreatedAt
 	return true
 }
 
