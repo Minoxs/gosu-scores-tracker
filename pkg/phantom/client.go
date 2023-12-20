@@ -1,11 +1,10 @@
-package client
+package phantom
 
 import (
 	"fmt"
 	"log"
+	"osu-phantom/pkg/osu"
 	"time"
-
-	"osu-phantom/src/osu"
 )
 
 type (
@@ -13,7 +12,7 @@ type (
 		GetToken() *osu.GuestToken
 	}
 
-	PhantomClient struct {
+	Client struct {
 		Username   string
 		Provider   AuthProvider
 		userID     int
@@ -22,13 +21,13 @@ type (
 	}
 )
 
-func Login(provider AuthProvider, username string) (client *PhantomClient, err error) {
-	client = &PhantomClient{Username: username, Provider: provider}
+func Login(provider AuthProvider, username string) (client *Client, err error) {
+	client = &Client{Username: username, Provider: provider}
 	client.userID, err = osu.GetUserID(provider.GetToken(), client.Username)
 	return
 }
 
-func (c *PhantomClient) Loop() {
+func (c *Client) Loop() {
 	defer func() {
 		if r := recover(); r != nil {
 			c.log("Recovered from panic: ", r)
@@ -63,7 +62,7 @@ func (c *PhantomClient) Loop() {
 	}
 }
 
-func (c *PhantomClient) update() bool {
+func (c *Client) update() bool {
 	var scores = c.getRecentScores()
 	c.log("Score count: ", len(scores))
 
@@ -88,15 +87,15 @@ func (c *PhantomClient) update() bool {
 	return true
 }
 
-func (c *PhantomClient) log(v ...any) {
+func (c *Client) log(v ...any) {
 	var l = "PhantomClient." + c.Username + " : " + fmt.Sprint(v...)
 	log.Println(l)
 }
 
-func (c *PhantomClient) getRecentScores() osu.Scores {
+func (c *Client) getRecentScores() osu.Scores {
 	return osu.GetRecentScores(c.Provider.GetToken(), c.userID)
 }
 
-func (c *PhantomClient) getBeatmapScores(beatmapID int) osu.Scores {
+func (c *Client) getBeatmapScores(beatmapID int) osu.Scores {
 	return osu.GetBeatmapScores(c.Provider.GetToken(), c.userID, beatmapID)
 }

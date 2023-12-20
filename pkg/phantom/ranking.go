@@ -1,10 +1,9 @@
-package client
+package phantom
 
 import (
 	"fmt"
 	"math"
-
-	"osu-phantom/src/osu"
+	"osu-phantom/pkg/osu"
 )
 
 const RankSize = 100

@@ -3,7 +3,7 @@ package osu
 import (
 	"fmt"
 	"log"
-	"osu-phantom/src/osu/calculator"
+	"osu-phantom/pkg/osu/calculator"
 	"time"
 )
 

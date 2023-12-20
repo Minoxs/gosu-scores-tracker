@@ -11,6 +11,11 @@ import (
 	"net/http"
 )
 
+type Credentials struct {
+	ClientID     int
+	ClientSecret string
+}
+
 const (
 	BaseURL  = "https://osu.ppy.sh"
 	OAuthURL = BaseURL + "/oauth"
@@ -37,10 +42,10 @@ func createRequestBody(i interface{}) io.Reader {
 	return bytes.NewBuffer(data)
 }
 
-func GetGuestToken(clientID int, clientSecret string) (*GuestToken, error) {
+func GetGuestToken(c Credentials) (*GuestToken, error) {
 	body := AuthGrant{
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
+		ClientID:     c.ClientID,
+		ClientSecret: c.ClientSecret,
 		GrantType:    "client_credentials",
 		Scope:        "public",
 	}
