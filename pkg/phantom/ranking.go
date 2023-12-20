@@ -8,6 +8,9 @@ import (
 
 const RankSize = 100
 
+// TODO MAKE SOME UNIT TESTS FOR RANKING (I THINK THEY'RE WRONG)
+// TODO CAPTURE BEATMAP NAME AND ADD TO LOGS
+
 type Ranking struct {
 	count  int8
 	scores [RankSize]*osu.Score

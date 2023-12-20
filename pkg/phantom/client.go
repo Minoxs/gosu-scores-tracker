@@ -21,6 +21,8 @@ type (
 	}
 )
 
+// TODO CONFIGURE START DATE
+
 func Login(provider AuthProvider, username string) (client *Client, err error) {
 	client = &Client{Username: username, Provider: provider}
 	client.userID, err = osu.GetUserID(provider.GetToken(), client.Username)

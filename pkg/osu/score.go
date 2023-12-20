@@ -96,6 +96,8 @@ func (s *Score) String() string {
 	)
 }
 
+// TODO CHECK IF CROSU NEEDS UPDATING
+
 // GetPP returns PP value of score
 // If PP from play is 0, will download Beatmap and calculate manually
 func (s *Score) GetPP() float64 {
