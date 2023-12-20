@@ -9,20 +9,20 @@ import (
 )
 
 type (
-	authProvider interface {
+	AuthProvider interface {
 		GetToken() *osu.GuestToken
 	}
 
 	PhantomClient struct {
 		Username   string
-		Provider   authProvider
+		Provider   AuthProvider
 		userID     int
 		ranking    Ranking
 		lastUpdate int64
 	}
 )
 
-func Login(provider authProvider, username string) (client *PhantomClient, err error) {
+func Login(provider AuthProvider, username string) (client *PhantomClient, err error) {
 	client = &PhantomClient{Username: username, Provider: provider}
 	client.userID, err = osu.GetUserID(provider.GetToken(), client.Username)
 	return
