@@ -1,5 +1,7 @@
 package optimization
 
+import "sync"
+
 //type Cache[Key any, Value any] interface {
 //	Get(Key) Value
 //	Set(Key, Value)
@@ -14,6 +16,7 @@ type BeatmapCache struct {
 	MaxUnitSize uint32
 	CacheSize   uint32
 
+	lock  sync.RWMutex
 	size  int
 	keys  []int
 	cache map[int][]byte
@@ -21,7 +24,7 @@ type BeatmapCache struct {
 
 func (b *BeatmapCache) Init() *BeatmapCache {
 	b.size = 0
-	b.keys = make([]int, 0, 16)
+	b.keys = make([]int, 0)
 	b.cache = make(map[int][]byte)
 
 	return b
@@ -43,13 +46,19 @@ func (b *BeatmapCache) ensureSpace(size int) bool {
 }
 
 func (b *BeatmapCache) Get(beatmapID int) (beatmap []byte, found bool) {
+	b.lock.RLock()
+	defer b.lock.RUnlock()
+
 	beatmap, found = b.cache[beatmapID]
 	return
 }
 
 func (b *BeatmapCache) Set(beatmapID int, beatmap []byte) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
 	var size = len(beatmap)
-	if b.ensureSpace(size) {
+	if size > 0 && b.ensureSpace(size) {
 		b.keys = append(b.keys, beatmapID)
 		b.cache[beatmapID] = beatmap
 		b.size += size
