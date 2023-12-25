@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 )
@@ -137,7 +136,7 @@ func DownloadBeatmap(id int) (buf []byte, err error) {
 		return
 	}
 
-	buf, err = ioutil.ReadAll(res.Body)
+	buf, err = io.ReadAll(res.Body)
 	log.Printf("BeatmapSize=%d bytes", len(buf))
 
 	if err == nil {
