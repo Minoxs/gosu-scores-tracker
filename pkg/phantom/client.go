@@ -27,7 +27,7 @@ type (
 func Login(provider AuthProvider, username string) (client *Client, err error) {
 	client = &Client{Username: username, Provider: provider}
 	client.userID, err = osu.GetUserID(provider.GetToken(), client.Username)
-	client.lastUpdate = time.Now().Add(-1 * 60 * 24 * time.Hour)
+	client.lastUpdate = time.Now()
 	return
 }
 
