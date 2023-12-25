@@ -8,7 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"osu-phantom/pkg/osu/score"
+	"osu-phantom/pkg/osu/player"
 )
 
 type Credentials struct {
@@ -73,7 +73,7 @@ func GetUserID(token *GuestToken, username string) (int, error) {
 	return body.ID, err
 }
 
-func GetRecentScores(token *GuestToken, userid int) []score.Score {
+func GetRecentScores(token *GuestToken, userid int) []player.Score {
 	endpoint := fmt.Sprintf("users/%d/scores/recent/?mode=osu&limit=10", userid)
 
 	req, _ := http.NewRequest(GET, APIv2URL(endpoint), nil)
@@ -86,7 +86,7 @@ func GetRecentScores(token *GuestToken, userid int) []score.Score {
 	}
 	defer res.Body.Close()
 
-	body := make(score.Scores, 0)
+	body := make(player.Scores, 0)
 	err = json.NewDecoder(res.Body).Decode(&body)
 	if err != nil {
 		log.Printf("Error while decoding body: %s\n", err)
@@ -95,7 +95,7 @@ func GetRecentScores(token *GuestToken, userid int) []score.Score {
 	return body
 }
 
-func GetBeatmapScores(token *GuestToken, userID int, beatmapID int) []score.Score {
+func GetBeatmapScores(token *GuestToken, userID int, beatmapID int) []player.Score {
 	endpoint := fmt.Sprintf("beatmaps/%d/scores/users/%d/all", beatmapID, userID)
 
 	req, _ := http.NewRequest(GET, APIv2URL(endpoint), nil)
@@ -108,7 +108,7 @@ func GetBeatmapScores(token *GuestToken, userID int, beatmapID int) []score.Scor
 	}
 	defer res.Body.Close()
 
-	s := struct{ Scores []score.Score }{make([]score.Score, 0)}
+	s := struct{ Scores []player.Score }{make([]player.Score, 0)}
 	err = json.NewDecoder(res.Body).Decode(&s)
 	if err != nil {
 		log.Printf("Error while decoding body: %s\n", err)

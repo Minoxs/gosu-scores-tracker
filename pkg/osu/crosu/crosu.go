@@ -1,4 +1,4 @@
-package calculator
+package crosu
 
 /*
 	This package handles the bridge between Go and C code
@@ -15,6 +15,7 @@ import (
 	"unsafe"
 )
 
+// TODO CHECK IF CROSU NEEDS UPDATING
 type ModType C.u32
 type Usize C.size_t
 

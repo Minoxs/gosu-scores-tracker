@@ -1,4 +1,4 @@
-package score
+package player
 
 import (
 	"fmt"
@@ -19,9 +19,6 @@ func (r *Ranking) String() string {
 }
 
 func (r *Ranking) AddScore(s Score) {
-	// Calculate PP
-	s.GetPP()
-
 	// Find index to insert at
 	var i int8 = 0
 	for ; i < r.count; i++ {

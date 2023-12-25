@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 	"osu-phantom/pkg/osu"
-	"osu-phantom/pkg/osu/score"
+	"osu-phantom/pkg/osu/player"
 	"time"
 )
 
@@ -17,7 +17,7 @@ type (
 		Username   string
 		Provider   AuthProvider
 		userID     int
-		ranking    score.Ranking
+		ranking    player.Ranking
 		lastUpdate time.Time
 	}
 )
@@ -96,10 +96,10 @@ func (c *Client) log(v ...any) {
 	log.Println(l)
 }
 
-func (c *Client) getRecentScores() score.Scores {
+func (c *Client) getRecentScores() player.Scores {
 	return osu.GetRecentScores(c.Provider.GetToken(), c.userID)
 }
 
-func (c *Client) getBeatmapScores(beatmapID int) score.Scores {
+func (c *Client) getBeatmapScores(beatmapID int) player.Scores {
 	return osu.GetBeatmapScores(c.Provider.GetToken(), c.userID, beatmapID)
 }
