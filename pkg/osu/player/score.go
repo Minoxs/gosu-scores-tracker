@@ -22,7 +22,6 @@ type Beatmap struct {
 	TotalLength   int     `json:"total_length"`
 	OD            int     `json:"od"`
 	Ar            float32 `json:"ar"`
-	BPM           int     `json:"bpm"`
 	CountCircles  int     `json:"count_circles"`
 	CountSliders  int     `json:"count_sliders"`
 	CountSpinners int     `json:"count_spinners"`
