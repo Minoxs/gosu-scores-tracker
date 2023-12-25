@@ -47,38 +47,20 @@ type Score struct {
 	Beatmap    Beatmap    `json:"beatmap"`
 }
 
+func (s *statistics) String() string {
+	return fmt.Sprintf("300=%d : 100=%d : 50=%d : Miss=%d", s.Count300, s.Count100, s.Count050, s.CountMiss)
+}
+
 type Scores []Score
 
 func (s Scores) String() (res string) {
 	res = ""
 	for _, score := range s {
-		res += fmt.Sprintf(
-			"ID=%d\n"+
-				"Accuracy=%f\n"+
-				"Mods=%v\n"+
-				"Score=%d\n"+
-				"PP=%.0f\n"+
-				"300=%d\n"+
-				"100=%d\n"+
-				"050=%d\n"+
-				"MIS=%d\n"+
-				"COM=%d\n"+
-				"-\n",
-			score.ID,
-			score.Accuracy,
-			score.Mods,
-			score.Score,
-			score.PP,
-			score.Statistics.Count300,
-			score.Statistics.Count100,
-			score.Statistics.Count050,
-			score.Statistics.CountMiss,
-			score.MaxCombo,
-		)
+		res += score.String() + ",\n"
 	}
 
 	if len(res) > 0 {
-		return "[\n" + res[:len(res)-2] + "]"
+		return "[\n" + res[:len(res)-2] + "\n]"
 	} else {
 		return "[]"
 	}
@@ -86,13 +68,16 @@ func (s Scores) String() (res string) {
 
 func (s *Score) String() string {
 	return fmt.Sprintf(
-		"|ID=%d : Mode=%s : Mods=%v : Score=%d : PP=%.0f : BeatmapID=%d|",
+		"{ ID=%d : BeatmapID=%d : Mode=%s : Mods=%v : Score=%d : PP=%.0f : MaxCombo=%d : Acc=%.2f : %s }",
 		s.ID,
+		s.Beatmap.ID,
 		s.Mode,
 		s.Mods,
 		s.Score,
 		s.PP,
-		s.Beatmap.ID,
+		s.MaxCombo,
+		s.Accuracy,
+		s.Statistics.String(),
 	)
 }
 
@@ -121,7 +106,7 @@ func (s *Score) GetPP() float64 {
 			calculator.GameMode(0).FromString(s.Mode),
 		)
 
-		log.Println("Calculated PP: ", s.PP)
+		log.Printf("CalculatedPP=%.4f\n", s.PP)
 	}
 
 	return s.PP
