@@ -58,7 +58,7 @@ func GetUserID(token *GuestToken, username string) (int, error) {
 
 	res, err := apiClient.Do(req)
 	if err != nil {
-		log.Printf("Error while sending GetUserID request: %s\n", err)
+		log.Printf("Error while sending request: %s\n", err)
 		return 0, err
 	}
 	defer res.Body.Close()
@@ -80,7 +80,7 @@ func GetRecentScores(token *GuestToken, userid int) []Score {
 
 	res, err := apiClient.Do(req)
 	if err != nil {
-		log.Printf("Error while sending GetUserID request: %s\n", err)
+		log.Printf("Error while sending request: %s\n", err)
 		return nil
 	}
 	defer res.Body.Close()
@@ -102,7 +102,7 @@ func GetBeatmapScores(token *GuestToken, userID int, beatmapID int) []Score {
 
 	res, err := apiClient.Do(req)
 	if err != nil {
-		log.Printf("Error while getting scores: %v", err)
+		log.Printf("Error while sending request: %s\n", err)
 		return nil
 	}
 	defer res.Body.Close()
