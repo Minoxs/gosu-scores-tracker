@@ -7,11 +7,6 @@ import "sync"
 //	Set(Key, Value)
 //}
 
-const (
-	Kb = 1024
-	Mb = 1024 * Kb
-)
-
 type BeatmapCache struct {
 	MaxUnitSize uint32
 	CacheSize   uint32
@@ -63,4 +58,8 @@ func (b *BeatmapCache) Set(beatmapID int, beatmap []byte) {
 		b.cache[beatmapID] = beatmap
 		b.size += size
 	}
+}
+
+func (b *BeatmapCache) CurrentSize() int {
+	return b.size
 }

@@ -16,19 +16,6 @@ type Credentials struct {
 	ClientSecret string
 }
 
-const (
-	BaseURL  = "https://osu.ppy.sh"
-	OAuthURL = BaseURL + "/oauth"
-	ApiV2    = BaseURL + "/api/v2"
-
-	GET  = "GET"
-	POST = "POST"
-	AUTH = "Authorization"
-	JSON = "application/json"
-)
-
-var CachedClient = &http.Client{}
-
 func buildOAUTHUrl(endpoint string) string {
 	return fmt.Sprintf("%s/%s", OAuthURL, endpoint)
 }
@@ -70,7 +57,7 @@ func GetUserID(token *GuestToken, username string) (int, error) {
 	req, _ := http.NewRequest(GET, APIv2URL(endpoint), nil)
 	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
 
-	res, err := CachedClient.Do(req)
+	res, err := apiClient.Do(req)
 	if err != nil {
 		log.Printf("Error while sending GetUserID request: %s\n", err)
 		return 0, err
@@ -92,7 +79,7 @@ func GetRecentScores(token *GuestToken, userid int) []Score {
 	req, _ := http.NewRequest(GET, APIv2URL(endpoint), nil)
 	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
 
-	res, err := CachedClient.Do(req)
+	res, err := apiClient.Do(req)
 	if err != nil {
 		log.Printf("Error while sending GetUserID request: %s\n", err)
 		return nil
@@ -114,7 +101,7 @@ func GetBeatmapScores(token *GuestToken, userID int, beatmapID int) []Score {
 	req, _ := http.NewRequest(GET, APIv2URL(endpoint), nil)
 	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
 
-	res, err := CachedClient.Do(req)
+	res, err := apiClient.Do(req)
 	if err != nil {
 		log.Printf("Error while getting scores: %v", err)
 		return nil
@@ -132,6 +119,10 @@ func GetBeatmapScores(token *GuestToken, userID int, beatmapID int) []Score {
 
 // TODO support mode
 func DownloadBeatmap(id int) (buf []byte, err error) {
+	if beatmap, found := cache.Get(id); found {
+		return beatmap, nil
+	}
+
 	var url = BaseURL + "/osu/" + fmt.Sprintf("%d", id)
 	var res *http.Response
 
@@ -147,7 +138,12 @@ func DownloadBeatmap(id int) (buf []byte, err error) {
 	}
 
 	buf, err = ioutil.ReadAll(res.Body)
-	log.Println("BeatmapSize: ", len(buf)/1000, "Kb")
+	log.Printf("BeatmapSize=%d bytes", len(buf))
+
+	if err == nil {
+		cache.Set(id, buf)
+		log.Printf("Set into cache : CurrentSize=%d\n", cache.CurrentSize())
+	}
 
 	return
 }

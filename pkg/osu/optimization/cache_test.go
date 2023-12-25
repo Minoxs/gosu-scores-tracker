@@ -1,6 +1,7 @@
 package optimization
 
 import (
+	"log"
 	"testing"
 )
 
@@ -44,10 +45,13 @@ func TestGetSet(t *testing.T) {
 	// Add 6 bytes to cache, reaching maximum
 	expected = test1
 	cache.Set(1, expected)
+	log.Printf("%d : CacheSize=%d\n", 1, cache.CurrentSize())
 	cache.Set(2, expected)
+	log.Printf("%d : CacheSize=%d\n", 2, cache.CurrentSize())
 
 	// This should NOT affect the cache since it's over the limit
 	cache.Set(3, test3)
+	log.Printf("%d : CacheSize=%d\n", 3, cache.CurrentSize())
 
 	// Look for 1
 	actual, found = cache.Get(1)
@@ -66,6 +70,7 @@ func TestGetSet(t *testing.T) {
 	// Adding 2 more bytes should remove ID=1
 	expected = test2
 	cache.Set(4, expected)
+	log.Printf("%d : CacheSize=%d\n", 4, cache.CurrentSize())
 
 	actual, found = cache.Get(4)
 	assertEqual(t, true, found)
@@ -87,6 +92,7 @@ func TestGetSet(t *testing.T) {
 	// This should be the only thing in the cache now
 	expected = test3
 	cache.Set(10, expected)
+	log.Printf("%d : CacheSize=%d\n", 5, cache.CurrentSize())
 
 	actual, found = cache.Get(10)
 	assertEqual(t, true, found)
