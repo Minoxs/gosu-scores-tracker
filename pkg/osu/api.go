@@ -85,7 +85,7 @@ func GetRecentScores(token *GuestToken, userid int) []Score {
 	}
 	defer res.Body.Close()
 
-	body := make([]Score, 0)
+	body := make(Scores, 0)
 	err = json.NewDecoder(res.Body).Decode(&body)
 	if err != nil {
 		log.Printf("Error while decoding body: %s\n", err)

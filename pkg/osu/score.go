@@ -18,6 +18,7 @@ type statistics struct {
 
 type Beatmap struct {
 	ID            int     `json:"id"`
+	Version       string  `json:"version"`
 	StarRating    float32 `json:"difficulty_rating"`
 	Status        string  `json:"status"`
 	TotalLength   int     `json:"total_length"`
@@ -30,6 +31,10 @@ type Beatmap struct {
 	CS            float32 `json:"cs"`
 	HP            float32 `json:"drain"`
 	HitLength     int     `json:"hit_length"`
+}
+
+type BeatmapSet struct {
+	Title string `json:"title"`
 }
 
 type Score struct {
@@ -45,6 +50,7 @@ type Score struct {
 	PP         float64    `json:"pp"`
 	Mode       string     `json:"mode"`
 	Beatmap    Beatmap    `json:"beatmap"`
+	BeatmapSet BeatmapSet `json:"beatmapSet"`
 }
 
 func (s *statistics) String() string {
@@ -68,9 +74,11 @@ func (s Scores) String() (res string) {
 
 func (s *Score) String() string {
 	return fmt.Sprintf(
-		"{ ID=%d : BeatmapID=%d : Mode=%s : Mods=%v : Score=%d : PP=%.0f : MaxCombo=%d : Acc=%.2f : %s }",
+		"{ ID=%d : BeatmapID=%d : Title=%s : Diff=%s : Mode=%s : Mods=%v : Score=%d : PP=%.0f : MaxCombo=%d : Acc=%.2f : %s }",
 		s.ID,
 		s.Beatmap.ID,
+		s.BeatmapSet.Title,
+		s.Beatmap.Version,
 		s.Mode,
 		s.Mods,
 		s.Score,

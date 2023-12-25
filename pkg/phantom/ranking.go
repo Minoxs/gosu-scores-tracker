@@ -9,15 +9,14 @@ import (
 const RankSize = 100
 
 // TODO MAKE SOME UNIT TESTS FOR RANKING (I THINK THEY'RE WRONG)
-// TODO CAPTURE BEATMAP NAME AND ADD TO LOGS
 
 type Ranking struct {
 	count  int8
-	scores [RankSize]*osu.Score
+	scores [RankSize]osu.Score
 }
 
 func (r *Ranking) String() string {
-	return fmt.Sprintf("Count=%d : Scores=%v : TotalPP=%.0f", r.count, r.scores[0:r.count], r.GetTotalPP())
+	return fmt.Sprintf("Count=%d : TotalPP=%.0f : Scores=%v", r.count, r.GetTotalPP(), osu.Scores(r.scores[:r.count]))
 }
 
 func (r *Ranking) AddScore(s osu.Score) {
@@ -71,7 +70,7 @@ func (r *Ranking) AddScore(s osu.Score) {
 	}
 
 	// Add score
-	r.scores[i] = &s
+	r.scores[i] = s
 }
 
 func (r *Ranking) GetTotalPP() (res float64) {
