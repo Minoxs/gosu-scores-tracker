@@ -73,7 +73,7 @@ func GetUserID(token *GuestToken, username string) (int, error) {
 	return body.ID, err
 }
 
-func GetRecentScores(token *GuestToken, userid int) []player.Score {
+func GetRecentScores(token *GuestToken, userid int) player.Scores {
 	endpoint := fmt.Sprintf("users/%d/scores/recent/?mode=osu&limit=10", userid)
 
 	req, _ := http.NewRequest(GET, APIv2URL(endpoint), nil)
@@ -86,16 +86,16 @@ func GetRecentScores(token *GuestToken, userid int) []player.Score {
 	}
 	defer res.Body.Close()
 
-	body := make(player.Scores, 0)
-	err = json.NewDecoder(res.Body).Decode(&body)
+	scores := make(player.Scores, 0)
+	err = json.NewDecoder(res.Body).Decode(&scores)
 	if err != nil {
 		log.Printf("Error while decoding body: %s\n", err)
 		return nil
 	}
-	return body
+	return scores
 }
 
-func GetBeatmapScores(token *GuestToken, userID int, beatmapID int) []player.Score {
+func GetBeatmapScores(token *GuestToken, userID int, beatmapID int) player.Scores {
 	endpoint := fmt.Sprintf("beatmaps/%d/scores/users/%d/all", beatmapID, userID)
 
 	req, _ := http.NewRequest(GET, APIv2URL(endpoint), nil)
@@ -108,7 +108,7 @@ func GetBeatmapScores(token *GuestToken, userID int, beatmapID int) []player.Sco
 	}
 	defer res.Body.Close()
 
-	s := struct{ Scores []player.Score }{make([]player.Score, 0)}
+	s := struct{ Scores player.Scores }{make(player.Scores, 0)}
 	err = json.NewDecoder(res.Body).Decode(&s)
 	if err != nil {
 		log.Printf("Error while decoding body: %s\n", err)
