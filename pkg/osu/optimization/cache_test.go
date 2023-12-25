@@ -16,7 +16,7 @@ func assertStrictEqual(t *testing.T, arr1 []byte, arr2 []byte) {
 		t.Fatalf("Arrays don't match\nExpected=%v\nActual=%v\n", arr1, arr2)
 	}
 
-	for i, _ := range arr1 {
+	for i := range arr1 {
 		if arr1[i] != arr2[i] {
 			t.Fatalf("Arrays don't match\nExpected=%s\nActual=%s\n", arr1, arr2)
 		}
