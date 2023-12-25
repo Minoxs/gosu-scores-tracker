@@ -13,6 +13,10 @@ func FatalError(err error) {
 	}
 }
 
+func init() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+}
+
 func main() {
 	var (
 		credentials osu.Credentials
