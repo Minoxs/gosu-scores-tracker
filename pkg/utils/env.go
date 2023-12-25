@@ -24,7 +24,6 @@ func (so StringObject) String() string {
 }
 
 func (so StringObject) Integer(def int) (res int) {
-	//strconv.Atoi()
 	res, _ = ParseInt(so.String(), def)
 	return res
 }

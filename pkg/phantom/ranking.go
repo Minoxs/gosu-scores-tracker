@@ -56,7 +56,7 @@ func (r *Ranking) AddScore(s osu.Score) {
 		}
 	}
 
-	// Increse count if ranks aren't full
+	// Increase count if ranks aren't full
 	if r.count < RankSize {
 		r.count++
 	}
