@@ -180,6 +180,8 @@ func TestRanking_AddScore(t *testing.T) {
 	log.Println(scores)
 
 	var rank Ranking
+	log.Println(&rank)
+
 	for i, score := range scores {
 		rank.AddScore(score)
 		assertEqual(t, i+1, int(rank.count))
@@ -193,7 +195,7 @@ func TestRanking_AddScore(t *testing.T) {
 		expectedTotalPP += arrExpectedTotalPP[i]
 		assertEqual(t, expectedTotalPP, rank.GetTotalPP())
 	}
-	log.Println(rank)
+	log.Println(&rank)
 }
 
 func TestRanking_GetTotalPPSingle(t *testing.T) {
