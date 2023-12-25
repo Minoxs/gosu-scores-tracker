@@ -25,7 +25,10 @@ func APIv2URL(endpoint string) string {
 }
 
 func createRequestBody(i interface{}) io.Reader {
-	data, _ := json.Marshal(i)
+	data, err := json.Marshal(i)
+	if err != nil {
+		panic(err)
+	}
 	return bytes.NewBuffer(data)
 }
 
@@ -36,7 +39,7 @@ func GetGuestToken(c Credentials) (*GuestToken, error) {
 		GrantType:    "client_credentials",
 		Scope:        "public",
 	}
-	r, err := http.Post(buildOAUTHUrl("token"), JSON, createRequestBody(body))
+	r, err := apiClient.Post(buildOAUTHUrl("token"), JSON, createRequestBody(body))
 
 	if err != nil {
 		return nil, err
@@ -126,7 +129,7 @@ func DownloadBeatmap(id int) (buf []byte, err error) {
 	var url = BaseURL + "/osu/" + fmt.Sprintf("%d", id)
 	var res *http.Response
 
-	res, err = http.Get(url)
+	res, err = apiClient.Get(url)
 	if err != nil {
 		return
 	}

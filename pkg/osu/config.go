@@ -12,7 +12,6 @@ const (
 	ApiV2    = BaseURL + "/api/v2"
 
 	GET  = "GET"
-	POST = "POST"
 	AUTH = "Authorization"
 	JSON = "application/json"
 )
