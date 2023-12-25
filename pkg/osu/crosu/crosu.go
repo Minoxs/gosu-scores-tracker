@@ -59,7 +59,7 @@ func (m ModType) FromString(s string) ModType {
 	}
 }
 
-func (m ModType) FromStringArray(arr []string) (res ModType) {
+func ModTypeFromStringArray(arr []string) (res ModType) {
 	res = 0
 
 	for _, s := range arr {
@@ -82,7 +82,7 @@ const (
 	MANIA          = 3
 )
 
-func (m GameMode) FromString(s string) GameMode {
+func GameModeFromString(s string) GameMode {
 	switch strings.ToLower(s) {
 	case "osu":
 		return OSU

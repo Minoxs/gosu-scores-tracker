@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"osu-phantom/pkg/osu/crosu"
 	"osu-phantom/pkg/osu/player"
 )
 
@@ -30,6 +31,35 @@ func createRequestBody(i interface{}) io.Reader {
 		panic(err)
 	}
 	return bytes.NewBuffer(data)
+}
+
+func calculatePP(score *player.Score) {
+	if score.PP > 0 {
+		return
+	}
+
+	var beatmap, err = DownloadBeatmap(score.Beatmap.ID)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	score.PP = crosu.GetPPFromMap(
+		beatmap,
+		score.MaxCombo,
+		score.Statistics.Count300,
+		score.Statistics.Count100,
+		score.Statistics.Count050,
+		score.Statistics.CountMiss,
+		crosu.ModTypeFromStringArray(score.Mods),
+		crosu.GameModeFromString(score.Mode),
+	)
+}
+
+func fillScoresPP(scores player.Scores) {
+	for i := range scores {
+		calculatePP(&scores[i])
+	}
 }
 
 func GetGuestToken(c Credentials) (*GuestToken, error) {
@@ -95,6 +125,8 @@ func GetRecentScores(token *GuestToken, userid int) player.Scores {
 		log.Printf("Error while decoding body: %s\n", err)
 		return nil
 	}
+
+	fillScoresPP(scores)
 	return scores
 }
 
@@ -117,6 +149,8 @@ func GetBeatmapScores(token *GuestToken, userID int, beatmapID int) player.Score
 		log.Printf("Error while decoding body: %s\n", err)
 		return nil
 	}
+
+	fillScoresPP(s.Scores)
 	return s.Scores
 }
 
