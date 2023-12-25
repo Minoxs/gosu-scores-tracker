@@ -149,7 +149,7 @@ func TestRanking_AddScoreOrdered(t *testing.T) {
 			}
 			assertEqual(t, testCase.ExpectedCount, int(rank.count))
 			for i := 1; i < int(rank.count); i++ {
-				if rank.scores[i].PP < rank.scores[i-1].PP {
+				if rank.scores[i].PP > rank.scores[i-1].PP {
 					t.Fatal("Rank is unordered")
 				}
 			}
@@ -160,11 +160,11 @@ func TestRanking_AddScoreOrdered(t *testing.T) {
 func TestRanking_AddScore(t *testing.T) {
 	var (
 		scores = Scores{
-			{PP: 336.242},
-			{PP: 332.834},
-			{PP: 330.403},
-			{PP: 328.735},
-			{PP: 328.239},
+			{Beatmap: Beatmap{ID: 1}, PP: 336.242},
+			{Beatmap: Beatmap{ID: 2}, PP: 332.834},
+			{Beatmap: Beatmap{ID: 3}, PP: 330.403},
+			{Beatmap: Beatmap{ID: 4}, PP: 328.735},
+			{Beatmap: Beatmap{ID: 5}, PP: 328.239},
 		}
 
 		arrExpectedTotalPP = []float64{
@@ -185,7 +185,7 @@ func TestRanking_AddScore(t *testing.T) {
 		assertEqual(t, i+1, int(rank.count))
 
 		for j := 1; j < int(rank.count); j++ {
-			if rank.scores[j].PP < rank.scores[j-1].PP {
+			if rank.scores[j].PP > rank.scores[j-1].PP {
 				t.Fatalf("Rank is unordered")
 			}
 		}
@@ -230,7 +230,6 @@ func BenchmarkRanking_AddScore(b *testing.B) {
 	var testCases = getTestCases()
 	for _, testCase := range testCases {
 		b.Run(testCase.Name, func(b *testing.B) {
-			b.ReportAllocs()
 			for j := 0; j < b.N; j++ {
 				var rank Ranking
 				for _, score := range testCase.Scores {
@@ -256,7 +255,6 @@ func BenchmarkRanking_GetTotalPP(b *testing.B) {
 	// Benchmark rankings
 	for i, rank := range ranks {
 		b.Run(testCases[i].Name, func(b *testing.B) {
-			b.ReportAllocs()
 			for j := 0; j < b.N; j++ {
 				_ = rank.GetTotalPP()
 			}
