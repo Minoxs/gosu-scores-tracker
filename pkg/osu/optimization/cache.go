@@ -1,4 +1,4 @@
-package osu
+package optimization
 
 //type Cache[Key any, Value any] interface {
 //	Get(Key) Value
@@ -10,7 +10,6 @@ const (
 	Mb = 1024 * Kb
 )
 
-// TODO CREATE UNIT TEST FOR THIS
 type BeatmapCache struct {
 	MaxUnitSize uint32
 	CacheSize   uint32
@@ -22,7 +21,7 @@ type BeatmapCache struct {
 
 func (b *BeatmapCache) Init() *BeatmapCache {
 	b.size = 0
-	b.keys = make([]int, 0)
+	b.keys = make([]int, 0, 16)
 	b.cache = make(map[int][]byte)
 
 	return b
