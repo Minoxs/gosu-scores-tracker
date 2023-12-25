@@ -1,9 +1,7 @@
-package osu
+package score
 
 import (
 	"fmt"
-	"log"
-	"osu-phantom/pkg/osu/calculator"
 	"time"
 )
 
@@ -95,26 +93,26 @@ func (s *Score) String() string {
 // If PP from play is 0, will download Beatmap and calculate manually
 func (s *Score) GetPP() float64 {
 	if s.PP == 0 {
-		// Download Beatmap
-		var beatmap, err = DownloadBeatmap(s.Beatmap.ID)
-		if err != nil {
-			log.Println(err)
-			return 0
-		}
-
-		// Calculate pp
-		s.PP = calculator.GetPPFromMap(
-			beatmap,
-			s.MaxCombo,
-			s.Statistics.Count300,
-			s.Statistics.Count100,
-			s.Statistics.Count050,
-			s.Statistics.CountMiss,
-			calculator.ModType(0).FromStringArray(s.Mods),
-			calculator.GameMode(0).FromString(s.Mode),
-		)
-
-		log.Printf("CalculatedPP=%.4f\n", s.PP)
+		//// Download Beatmap
+		//var beatmap, err = osu.DownloadBeatmap(s.Beatmap.ID)
+		//if err != nil {
+		//	log.Println(err)
+		//	return 0
+		//}
+		//
+		//// Calculate pp
+		//s.PP = calculator.GetPPFromMap(
+		//	beatmap,
+		//	s.MaxCombo,
+		//	s.Statistics.Count300,
+		//	s.Statistics.Count100,
+		//	s.Statistics.Count050,
+		//	s.Statistics.CountMiss,
+		//	calculator.ModType(0).FromStringArray(s.Mods),
+		//	calculator.GameMode(0).FromString(s.Mode),
+		//)
+		//
+		//log.Printf("CalculatedPP=%.4f\n", s.PP)
 	}
 
 	return s.PP

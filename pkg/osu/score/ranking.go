@@ -1,9 +1,8 @@
-package phantom
+package score
 
 import (
 	"fmt"
 	"math"
-	"osu-phantom/pkg/osu"
 )
 
 const RankSize = 100
@@ -12,14 +11,14 @@ const RankSize = 100
 
 type Ranking struct {
 	count  int8
-	scores [RankSize]osu.Score
+	scores [RankSize]Score
 }
 
 func (r *Ranking) String() string {
-	return fmt.Sprintf("Count=%d : TotalPP=%.0f : Scores=%v", r.count, r.GetTotalPP(), osu.Scores(r.scores[:r.count]))
+	return fmt.Sprintf("Count=%d : TotalPP=%.0f : Scores=%v", r.count, r.GetTotalPP(), Scores(r.scores[:r.count]))
 }
 
-func (r *Ranking) AddScore(s osu.Score) {
+func (r *Ranking) AddScore(s Score) {
 	// Calculate PP
 	s.GetPP()
 
@@ -79,5 +78,6 @@ func (r *Ranking) GetTotalPP() (res float64) {
 	for ; i < r.count; i++ {
 		res += r.scores[i].PP * math.Pow(0.95, (float64)(i))
 	}
+	res = math.Floor(res)
 	return
 }
