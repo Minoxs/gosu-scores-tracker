@@ -25,8 +25,6 @@ func (m GameMode) ToC() C.GameMode {
 	return (C.GameMode)(m)
 }
 
-// TODO CHECK IF CROSU NEEDS UPDATING
-
 func GetPPFromMap(beatmap []byte, combo, n300, n100, n050, misses int, mods ModType, mode GameMode) float64 {
 	if beatmap[len(beatmap)-1] != 0 {
 		beatmap = append(beatmap, 0)
