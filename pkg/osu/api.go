@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/minoxs/osu-phantom/pkg/osu/crosu"
+	"github.com/minoxs/osu-phantom/pkg/osu/player"
 	"io"
 	"log"
 	"net/http"
-	"osu-phantom/pkg/osu/crosu"
-	"osu-phantom/pkg/osu/player"
 )
 
 type Credentials struct {

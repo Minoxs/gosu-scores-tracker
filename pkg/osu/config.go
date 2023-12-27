@@ -1,8 +1,8 @@
 package osu
 
 import (
+	"github.com/minoxs/osu-phantom/pkg/osu/optimization"
 	"net/http"
-	"osu-phantom/pkg/osu/optimization"
 	"time"
 )
 
