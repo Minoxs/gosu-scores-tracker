@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 ROOT=$(pwd)
 SCRIPT_PATH=$(dirname $0)
 
