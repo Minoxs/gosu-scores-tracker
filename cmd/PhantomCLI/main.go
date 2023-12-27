@@ -1,10 +1,10 @@
 package main
 
 import (
+	"github.com/minoxs/osu-phantom/pkg/osu"
+	"github.com/minoxs/osu-phantom/pkg/phantom"
 	"log"
 	"os"
-	"osu-phantom/pkg/osu"
-	"osu-phantom/pkg/phantom"
 )
 
 func FatalError(err error) {

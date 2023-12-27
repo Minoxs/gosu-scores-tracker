@@ -2,9 +2,9 @@ package phantom
 
 import (
 	"fmt"
+	"github.com/minoxs/osu-phantom/pkg/osu"
+	"github.com/minoxs/osu-phantom/pkg/osu/player"
 	"log"
-	"osu-phantom/pkg/osu"
-	"osu-phantom/pkg/osu/player"
 	"time"
 )
 

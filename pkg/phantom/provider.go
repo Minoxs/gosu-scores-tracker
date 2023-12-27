@@ -1,6 +1,6 @@
 package phantom
 
-import "osu-phantom/pkg/osu"
+import "github.com/minoxs/osu-phantom/pkg/osu"
 
 type DefaultProvider struct {
 	Token *osu.GuestToken
