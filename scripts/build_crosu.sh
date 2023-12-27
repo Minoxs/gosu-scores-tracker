@@ -1,6 +1,8 @@
 ROOT=$(pwd)
+SCRIPT_PATH=$(dirname $0)
 
-cd ./deps/crosu-pp || exit
+cd "$SCRIPT_PATH" || exit
+cd ../deps/crosu-pp || exit
 cargo build --release
 
 BUILT_LIB=./target/release/crosu_pp
