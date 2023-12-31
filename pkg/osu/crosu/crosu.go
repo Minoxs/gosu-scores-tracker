@@ -38,6 +38,18 @@ func GetPPFromMap(beatmap []byte, combo, n300, n100, n050, misses int, mods ModT
 		n050:   (C.size_t)(n050),
 		misses: (C.size_t)(misses),
 	}
-
 	return (float64)(C.GetPPFromMap(ptr, false, mods.ToC(), mode.ToC(), score))
+}
+
+func GetPPFromFile(filename string, combo, n300, n100, n050, misses int, mods ModType, mode GameMode) float64 {
+	var beatmap = append([]byte(filename), 0)
+	var ptr = (*C.char)(unsafe.Pointer(&beatmap[0]))
+	var score = C.Score{
+		combo:  (C.size_t)(combo),
+		n300:   (C.size_t)(n300),
+		n100:   (C.size_t)(n100),
+		n050:   (C.size_t)(n050),
+		misses: (C.size_t)(misses),
+	}
+	return (float64)(C.GetPPFromMap(ptr, true, mods.ToC(), mode.ToC(), score))
 }
