@@ -5,6 +5,7 @@ import (
 	"github.com/minoxs/osu-phantom/pkg/phantom"
 	"log"
 	"os"
+	"time"
 )
 
 func FatalError(err error) {
@@ -43,5 +44,5 @@ func main() {
 	client, err = phantom.Login(provider, username)
 	FatalError(err)
 
-	client.Loop()
+	client.KeepUpdated(1*time.Minute, 30*time.Minute)
 }

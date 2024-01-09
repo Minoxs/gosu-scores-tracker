@@ -13,3 +13,5 @@ LIB_LINUX=$LIB_PATH/lib$LIB_NAME.so
 
 [ -f $LIB_DLL ] && mv $LIB_DLL "$ROOT"
 [ -f $LIB_LINUX ] && mv $LIB_LINUX "$ROOT"
+
+cd "$ROOT" || exit
