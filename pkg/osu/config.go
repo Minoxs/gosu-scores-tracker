@@ -24,6 +24,7 @@ var (
 
 	// cache is used to store beatmaps without having to ask the API every time. Disabled by default.
 	// Call SetCacheOptions to enable it.
+	// TODO REMOVE FROM PACKAGE SCOPE
 	cache = &optimization.BeatmapCache{
 		MaxUnitSize: 0,
 		CacheSize:   0,
