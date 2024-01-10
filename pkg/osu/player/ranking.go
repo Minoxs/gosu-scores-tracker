@@ -16,11 +16,9 @@ func (r *Ranking) String() string {
 	return fmt.Sprintf("Count=%d : TotalPP=%.0f : Scores=%v", r.count, r.GetTotalPP(), Scores(r.scores[:r.count]))
 }
 
-func (r *Ranking) AddScore(s Score) {
-	// Find index to insert at
-	var i int8
-	for i = 0; i < r.count; i++ {
-		var com = r.scores[i]
+func (r *Ranking) findPosition(s Score) (valid bool, pos int8) {
+	for pos = 0; pos < r.count; pos++ {
+		var com = r.scores[pos]
 
 		// Return early if the score was already added or
 		// A better score on the same map already exists
@@ -33,14 +31,13 @@ func (r *Ranking) AddScore(s Score) {
 			break
 		}
 	}
+	valid = pos < RankSize
+	return
+}
 
-	// If score is out of the rankings, just leave
-	if i >= RankSize {
-		return
-	}
-
+func (r *Ranking) insertScore(pos int8, s Score) {
 	// Find index of last score to move
-	var j = i
+	var j = pos
 	for ; j < r.count; j++ {
 		var com = r.scores[j]
 		if s.Beatmap.ID == com.Beatmap.ID {
@@ -60,12 +57,19 @@ func (r *Ranking) AddScore(s Score) {
 		j = RankSize - 1
 	}
 	// Move scores
-	for k := j - 1; k >= i; k-- {
+	for k := j - 1; k >= pos; k-- {
 		r.scores[k+1] = r.scores[k]
 	}
 
 	// Add score
-	r.scores[i] = s
+	r.scores[pos] = s
+}
+
+func (r *Ranking) AddScore(s Score) {
+	var valid, pos = r.findPosition(s)
+	if valid {
+		r.insertScore(pos, s)
+	}
 }
 
 func (r *Ranking) GetTotalPP() (res float64) {
