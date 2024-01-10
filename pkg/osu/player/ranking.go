@@ -18,12 +18,13 @@ func (r *Ranking) String() string {
 
 func (r *Ranking) AddScore(s Score) {
 	// Find index to insert at
-	var i int8 = 0
-	for ; i < r.count; i++ {
+	var i int8
+	for i = 0; i < r.count; i++ {
 		var com = r.scores[i]
 
-		// If better score already exists, just leave
-		if s.Beatmap.ID == com.Beatmap.ID && s.PP < com.PP {
+		// Return early if the score was already added or
+		// A better score on the same map already exists
+		if s.ID == com.ID || s.Beatmap.ID == com.Beatmap.ID && s.PP < com.PP {
 			return
 		}
 

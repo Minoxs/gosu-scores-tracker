@@ -13,7 +13,6 @@ import (
 // TODO CONFIGURE START DATE
 // TODO AVOID RECALCULATING PP FOR SCORE (CHECK SCORE ID)
 // TODO USE SLOG IN OSU PHANTOM
-// BUG SCORES ARE GETTING DUPLICATED
 
 type (
 	// AuthProvider is required for requests which require OAuth authorization
