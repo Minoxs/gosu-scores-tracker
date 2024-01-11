@@ -70,8 +70,7 @@ func (r *Ranking) AddScore(s Score) {
 
 func (r *Ranking) GetTotalPP() (res float64) {
 	res = 0
-	var i int8 = 0
-	for ; i < r.count; i++ {
+	for i := int8(0); i < r.count; i++ {
 		res += r.scores[i].PP * math.Pow(0.95, (float64)(i))
 	}
 	res = math.Floor(res)
