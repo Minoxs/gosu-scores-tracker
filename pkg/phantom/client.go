@@ -11,6 +11,8 @@ import (
 )
 
 // TODO CONFIGURE START DATE
+// TODO AVOID RECALCULATING PP FOR SCORE (CHECK SCORE ID)
+// TODO USE SLOG IN OSU PHANTOM
 
 type (
 	// AuthProvider is required for requests which require OAuth authorization
@@ -103,7 +105,7 @@ func (c *Client) Update() bool {
 	c.log("Score count: ", len(scores))
 
 	// Check if there are new scores
-	if len(scores) == 0 || scores[0].CreatedAt.Equal(c.LastUpdate) {
+	if len(scores) == 0 || scores[0].CreatedAt.Compare(c.LastUpdate) <= 0 {
 		c.log("No updates...")
 		return false
 	}

@@ -108,6 +108,8 @@ func GetUserID(token *GuestToken, username string) (int, error) {
 
 func GetRecentScores(token *GuestToken, userid int) player.Scores {
 	endpoint := fmt.Sprintf("users/%d/scores/recent/?mode=osu&limit=10", userid)
+	// TODO CONFIGURE LIMIT
+	// TODO ALLOW FOR SCORE PAGINATION
 
 	req, _ := http.NewRequest(GET, APIv2URL(endpoint), nil)
 	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
