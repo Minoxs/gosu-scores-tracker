@@ -18,16 +18,14 @@ func (r *Ranking) String() string {
 
 func (r *Ranking) findPosition(s Score) (valid bool, pos int8) {
 	for pos = 0; pos < r.count; pos++ {
-		var com = r.scores[pos]
-
 		// Return early if the score was already added or
 		// A better score on the same map already exists
-		if s.ID == com.ID || s.Beatmap.ID == com.Beatmap.ID && s.PP < com.PP {
+		if s.ID == r.scores[pos].ID || s.Beatmap.ID == r.scores[pos].Beatmap.ID && s.PP < r.scores[pos].PP {
 			return
 		}
 
 		// Better score !
-		if s.PP > com.PP {
+		if s.PP > r.scores[pos].PP {
 			break
 		}
 	}
@@ -39,8 +37,7 @@ func (r *Ranking) insertScore(pos int8, s Score) {
 	// Find index of last score to move
 	var j = pos
 	for ; j < r.count; j++ {
-		var com = r.scores[j]
-		if s.Beatmap.ID == com.Beatmap.ID {
+		if s.Beatmap.ID == r.scores[j].Beatmap.ID {
 			// Score will be removed
 			r.count--
 			break
