@@ -53,10 +53,9 @@ func (r *Ranking) insertScore(pos int8, s Score) {
 	if j >= RankSize {
 		j = RankSize - 1
 	}
+
 	// Move scores
-	for k := j - 1; k >= pos; k-- {
-		r.scores[k+1] = r.scores[k]
-	}
+	copy(r.scores[pos+1:j+1], r.scores[pos:j])
 
 	// Add score
 	r.scores[pos] = s
