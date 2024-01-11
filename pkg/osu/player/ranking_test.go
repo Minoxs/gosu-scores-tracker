@@ -179,6 +179,50 @@ func TestRanking_AddScoreOrdered(t *testing.T) {
 	}
 }
 
+func TestRanking_AddScoreUniqueScoreID(t *testing.T) {
+	for _, testCase := range getTestCases() {
+		t.Run(testCase.Name, func(t *testing.T) {
+			var rank Ranking
+			for _, score := range testCase.Scores {
+				rank.AddScore(score)
+			}
+			var ids = make(map[int]bool)
+			for _, score := range rank.scores {
+				if score.ID == 0 {
+					continue
+				}
+				if ids[score.ID] {
+					t.Fatal("Non-Unique ID found")
+				}
+				ids[score.ID] = true
+			}
+			assertEqual(t, testCase.ExpectedCount, int(rank.count))
+		})
+	}
+}
+
+func TestRanking_AddScoreUniqueBeatmapID(t *testing.T) {
+	for _, testCase := range getTestCases() {
+		t.Run(testCase.Name, func(t *testing.T) {
+			var rank Ranking
+			for _, score := range testCase.Scores {
+				rank.AddScore(score)
+			}
+			var ids = make(map[int]bool)
+			for _, score := range rank.scores {
+				if score.ID == 0 {
+					continue
+				}
+				if ids[score.Beatmap.ID] {
+					t.Fatal("Non-Unique ID found")
+				}
+				ids[score.Beatmap.ID] = true
+			}
+			assertEqual(t, testCase.ExpectedCount, int(rank.count))
+		})
+	}
+}
+
 func TestRanking_AddScore(t *testing.T) {
 	var (
 		scores = Scores{
