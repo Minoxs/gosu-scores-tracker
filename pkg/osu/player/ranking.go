@@ -16,7 +16,7 @@ func (r *Ranking) String() string {
 	return fmt.Sprintf("Count=%d : TotalPP=%.0f : Scores=%v", r.count, r.GetTotalPP(), Scores(r.scores[:r.count]))
 }
 
-func (r *Ranking) findPosition(s Score) (valid bool, pos int8) {
+func (r *Ranking) findPosition(s *Score) (valid bool, pos int8) {
 	for pos = 0; pos < r.count; pos++ {
 		// Return early if the score was already added or
 		// A better score on the same map already exists
@@ -33,7 +33,7 @@ func (r *Ranking) findPosition(s Score) (valid bool, pos int8) {
 	return
 }
 
-func (r *Ranking) insertScore(pos int8, s Score) {
+func (r *Ranking) insertScore(pos int8, s *Score) {
 	// Find index of last score to move
 	var j = pos
 	for ; j < r.count; j++ {
@@ -58,13 +58,13 @@ func (r *Ranking) insertScore(pos int8, s Score) {
 	copy(r.scores[pos+1:j+1], r.scores[pos:j])
 
 	// Add score
-	r.scores[pos] = s
+	r.scores[pos] = *s
 }
 
 func (r *Ranking) AddScore(s Score) {
-	var valid, pos = r.findPosition(s)
+	var valid, pos = r.findPosition(&s)
 	if valid {
-		r.insertScore(pos, s)
+		r.insertScore(pos, &s)
 	}
 }
 
