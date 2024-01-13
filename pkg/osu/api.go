@@ -44,6 +44,7 @@ func GetGuestToken(c Credentials) (*GuestToken, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer r.Body.Close()
 
 	if r.StatusCode == 200 {
 		res := &GuestToken{}
