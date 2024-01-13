@@ -67,7 +67,6 @@ func Login(provider AuthProvider, username string) (client *Client, err error) {
 
 // KeepUpdated will fetch new scores from the API in the interval configured.
 // Will stop routine after maxIdle without new scores.
-// Returns a function that will prematurely stop the routine if called.
 func (c *Client) KeepUpdated(checkInterval time.Duration, maxIdle time.Duration) {
 	c.Logger.Info("Running KeepUpdated")
 	defer func() {
@@ -100,6 +99,7 @@ func (c *Client) KeepUpdated(checkInterval time.Duration, maxIdle time.Duration)
 
 // Update will check for new scores and update the ranking.
 // Will not fetch from the API if it's been less than 30s since last fetch.
+// Returns true when new scores were received from the API, even if they don't go into the ranking.
 func (c *Client) Update() bool {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -117,7 +117,20 @@ func (c *Client) Update() bool {
 		c.Logger.Debug("No new scores")
 		return false
 	}
+	c.processNewScores(scores)
 
+	return true
+}
+
+// Ranking safely returns client ranking.
+// Modifications in the resulting ranking will not affect client.
+func (c *Client) Ranking() player.Ranking {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	return c.ranking
+}
+
+func (c *Client) processNewScores(scores player.Scores) {
 	// Keep track of added scores
 	var (
 		count     int
@@ -149,15 +162,6 @@ func (c *Client) Update() bool {
 
 	// Update last signal
 	c.LastUpdate = scores[0].CreatedAt
-	return true
-}
-
-// Ranking safely returns client ranking.
-// Modifications in the resulting ranking will not affect client.
-func (c *Client) Ranking() player.Ranking {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	return c.ranking
 }
 
 func (c *Client) getRecentScores() player.Scores {
