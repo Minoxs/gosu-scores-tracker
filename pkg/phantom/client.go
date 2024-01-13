@@ -18,6 +18,14 @@ type (
 		GetToken() *osu.GuestToken
 	}
 
+	// NewScore contains information of a new score
+	NewScore struct {
+		BeatmapID int
+		Position  int
+		Title     string
+		PP        float64
+	}
+
 	// Client handles the tracking of a user's scores
 	Client struct {
 		UserID   int
@@ -25,8 +33,9 @@ type (
 		Provider AuthProvider
 		Logger   *slog.Logger
 
-		ranking    player.Ranking
-		LastUpdate time.Time
+		OnNewScores func([]NewScore)
+		ranking     player.Ranking
+		LastUpdate  time.Time
 
 		lock sync.Mutex
 	}
@@ -60,7 +69,6 @@ func Login(provider AuthProvider, username string) (client *Client, err error) {
 
 // KeepUpdated will fetch new scores from the API in the interval configured.
 // Will stop routine after maxIdle without new scores.
-// Returns a function that will prematurely stop the routine if called.
 func (c *Client) KeepUpdated(checkInterval time.Duration, maxIdle time.Duration) {
 	c.Logger.Info("Running KeepUpdated")
 	defer func() {
@@ -93,6 +101,7 @@ func (c *Client) KeepUpdated(checkInterval time.Duration, maxIdle time.Duration)
 
 // Update will check for new scores and update the ranking.
 // Will not fetch from the API if it's been less than 30s since last fetch.
+// Returns true when new scores were received from the API, even if they don't go into the ranking.
 func (c *Client) Update() bool {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -110,20 +119,8 @@ func (c *Client) Update() bool {
 		c.Logger.Debug("No new scores")
 		return false
 	}
+	c.processNewScores(scores)
 
-	// Add new scores to the ranks
-	for _, score := range scores {
-		if score.CreatedAt.Compare(c.LastUpdate) <= 0 {
-			break
-		}
-
-		osu.GetPP(&score)
-		c.Logger.Info("Possible new score", "ID", score.ID, "BeatmapID", score.Beatmap.ID, "Title", score.BeatmapSet.Title, "PP", score.PP)
-		c.ranking.AddScore(score)
-	}
-
-	// Update last signal
-	c.LastUpdate = scores[0].CreatedAt
 	return true
 }
 
@@ -133,6 +130,38 @@ func (c *Client) Ranking() player.Ranking {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	return c.ranking
+}
+
+func (c *Client) processNewScores(scores player.Scores) {
+	// Keep track of added scores
+	var newScores []NewScore
+
+	// Add new scores to the ranks
+	for _, score := range scores {
+		if score.CreatedAt.Compare(c.LastUpdate) <= 0 {
+			break
+		}
+
+		osu.GetPP(&score)
+		c.Logger.Debug("Possible new score", "ID", score.ID, "BeatmapID", score.Beatmap.ID, "Title", score.BeatmapSet.Title, "PP", score.PP)
+		if rank, added := c.ranking.AddScore(score); added {
+			c.Logger.Info("New score", "ID", score.ID, "BeatmapID", score.Beatmap.ID, "Title", score.BeatmapSet.Title, "PP", score.PP)
+			newScores = append(newScores, NewScore{
+				BeatmapID: score.Beatmap.ID,
+				Position:  rank,
+				Title:     score.BeatmapSet.Title,
+				PP:        score.PP,
+			})
+		}
+	}
+
+	// Fire new scores event
+	if c.OnNewScores != nil {
+		c.OnNewScores(newScores)
+	}
+
+	// Update last signal
+	c.LastUpdate = scores[0].CreatedAt
 }
 
 func (c *Client) getRecentScores() player.Scores {

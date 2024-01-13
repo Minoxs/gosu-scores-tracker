@@ -61,11 +61,12 @@ func (r *Ranking) insertScore(pos int8, s *Score) {
 	r.scores[pos] = *s
 }
 
-func (r *Ranking) AddScore(s Score) {
-	var valid, pos = r.findPosition(&s)
+func (r *Ranking) AddScore(s Score) (rank int, added bool) {
+	var valid, idx = r.findPosition(&s)
 	if valid {
-		r.insertScore(pos, &s)
+		r.insertScore(idx, &s)
 	}
+	return int(idx + 1), valid
 }
 
 func (r *Ranking) GetTotalPP() (res float64) {
@@ -75,4 +76,8 @@ func (r *Ranking) GetTotalPP() (res float64) {
 	}
 	res = math.Floor(res)
 	return
+}
+
+func (r Ranking) Count() int {
+	return int(r.count)
 }
