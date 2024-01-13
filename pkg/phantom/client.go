@@ -91,8 +91,6 @@ func (c *Client) KeepUpdated(checkInterval time.Duration, maxIdle time.Duration)
 				return
 			}
 
-			c.Logger.Debug("New scores", "Ranking", c.ranking)
-
 			// Reset timer
 			interval.Reset(checkInterval)
 		}
