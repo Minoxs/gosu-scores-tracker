@@ -47,8 +47,7 @@ func GetGuestToken(c Credentials) (*GuestToken, error) {
 
 	if r.StatusCode == 200 {
 		res := &GuestToken{}
-		_ = json.NewDecoder(r.Body).Decode(res)
-		return res, nil
+		return res, json.NewDecoder(r.Body).Decode(res)
 	} else {
 		return nil, errors.New("status_code=" + r.Status)
 	}
