@@ -1,6 +1,9 @@
 package optimization
 
-import "sync"
+import (
+	"log/slog"
+	"sync"
+)
 
 //type Cache[Key any, Value any] interface {
 //	Get(Key) Value
@@ -35,6 +38,7 @@ func (b *BeatmapCache) ensureSpace(size int) bool {
 		b.size -= len(b.cache[remove])
 		delete(b.cache, remove)
 		b.keys = b.keys[1:]
+		slog.Info("Removed from cache", "Beatmap.ID", remove, "Cache.Size", b.size, "Cache.Count", len(b.keys))
 	}
 
 	return true
@@ -45,6 +49,7 @@ func (b *BeatmapCache) Get(beatmapID int) (beatmap []byte, found bool) {
 	defer b.lock.RUnlock()
 
 	beatmap, found = b.cache[beatmapID]
+	slog.Debug("Get from cache", "Beatmap.ID", beatmapID, "Found", found)
 	return
 }
 
@@ -57,6 +62,7 @@ func (b *BeatmapCache) Set(beatmapID int, beatmap []byte) {
 		b.keys = append(b.keys, beatmapID)
 		b.cache[beatmapID] = beatmap
 		b.size += size
+		slog.Info("Added to cache", "Beatmap.ID", beatmapID, "Beatmap.Size", len(beatmap), "Cache.Size", b.size, "Cache.Count", len(b.keys))
 	}
 }
 

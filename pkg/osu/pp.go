@@ -3,7 +3,7 @@ package osu
 import (
 	"github.com/minoxs/osu-phantom/pkg/osu/crosu"
 	"github.com/minoxs/osu-phantom/pkg/osu/player"
-	"log"
+	"log/slog"
 )
 
 func GetPP(score *player.Score) {
@@ -13,7 +13,7 @@ func GetPP(score *player.Score) {
 
 	var beatmap, err = DownloadBeatmap(score.Beatmap.ID)
 	if err != nil {
-		log.Println(err)
+		slog.Error("Error downloading beatmap", "BeatmapID", score.Beatmap.ID, "Title", score.BeatmapSet.Title)
 		return
 	}
 

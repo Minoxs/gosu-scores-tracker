@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"github.com/minoxs/osu-phantom/pkg/osu/player"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 )
 
@@ -61,7 +61,6 @@ func GetUserID(token *GuestToken, username string) (int, error) {
 
 	res, err := apiClient.Do(req)
 	if err != nil {
-		log.Printf("Error while sending request: %s\n", err)
 		return 0, err
 	}
 	defer res.Body.Close()
@@ -69,7 +68,6 @@ func GetUserID(token *GuestToken, username string) (int, error) {
 	body := &User{}
 	err = json.NewDecoder(res.Body).Decode(body)
 	if err != nil {
-		log.Printf("Error while decoding body: %s\n", err)
 		return 0, err
 	}
 	return body.ID, err
@@ -85,7 +83,7 @@ func GetRecentScores(token *GuestToken, userid int) player.Scores {
 
 	res, err := apiClient.Do(req)
 	if err != nil {
-		log.Printf("Error while sending request: %s\n", err)
+		slog.Error("Error while sending request", "Error", err)
 		return nil
 	}
 	defer res.Body.Close()
@@ -93,7 +91,7 @@ func GetRecentScores(token *GuestToken, userid int) player.Scores {
 	scores := make(player.Scores, 0)
 	err = json.NewDecoder(res.Body).Decode(&scores)
 	if err != nil {
-		log.Printf("Error while decoding body: %s\n", err)
+		slog.Error("Error while decoding response", "Error", err)
 		return nil
 	}
 
@@ -108,7 +106,7 @@ func GetBeatmapScores(token *GuestToken, userID int, beatmapID int) player.Score
 
 	res, err := apiClient.Do(req)
 	if err != nil {
-		log.Printf("Error while sending request: %s\n", err)
+		slog.Error("Error while sending request", "Error", err)
 		return nil
 	}
 	defer res.Body.Close()
@@ -116,7 +114,7 @@ func GetBeatmapScores(token *GuestToken, userID int, beatmapID int) player.Score
 	s := struct{ Scores player.Scores }{make(player.Scores, 0)}
 	err = json.NewDecoder(res.Body).Decode(&s)
 	if err != nil {
-		log.Printf("Error while decoding body: %s\n", err)
+		slog.Error("Error while decoding response", "Error", err)
 		return nil
 	}
 
@@ -144,11 +142,9 @@ func DownloadBeatmap(id int) (buf []byte, err error) {
 	}
 
 	buf, err = io.ReadAll(res.Body)
-	log.Printf("BeatmapSize=%d bytes", len(buf))
-
+	slog.Info("Beatmap downloaded", "ID", id, "Size", len(buf))
 	if err == nil {
 		cache.Set(id, buf)
-		log.Printf("Set into cache : CurrentSize=%d\n", cache.CurrentSize())
 	}
 
 	return
