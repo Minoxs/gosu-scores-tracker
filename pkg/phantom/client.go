@@ -129,7 +129,7 @@ func (c *Client) Update() bool {
 func (c *Client) Ranking() player.Ranking {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	return c.ranking.Clone()
+	return c.ranking
 }
 
 func (c *Client) processNewScores(scores player.Scores) {

@@ -17,6 +17,12 @@ func assertEqual[T comparable](t *testing.T, val1 T, val2 T) {
 	}
 }
 
+func assert(t *testing.T, test bool, msg string) {
+	if !test {
+		t.Fatal(msg)
+	}
+}
+
 func getTestCases() []TestCaseInfo {
 	return []TestCaseInfo{
 		{
@@ -292,6 +298,29 @@ func TestRanking_GetTotalPPSingle(t *testing.T) {
 
 		assertEqual(t, ExpectedTotalPP, rank.GetTotalPP())
 	})
+}
+
+func TestRanking_Clone(t *testing.T) {
+	var expected = Ranking{
+		count: 5,
+		scores: [RankSize]Score{
+			{PP: 336.242},
+			{PP: 332.834},
+			{PP: 330.403},
+			{PP: 328.735},
+			{PP: 328.239},
+		},
+	}
+	var actual = expected
+	assertEqual(t, expected.count, actual.count)
+	assert(t, &expected.scores != &actual.scores, "Pointing to the same ranking")
+
+	actual.scores[0] = Score{}
+	assert(t, expected.scores[0].PP > actual.scores[0].PP, "Messed up the ranking")
+
+	for i := int8(1); i < actual.count; i++ {
+		assertEqual(t, expected.scores[i].PP, actual.scores[i].PP)
+	}
 }
 
 func BenchmarkRanking_AddScore(b *testing.B) {

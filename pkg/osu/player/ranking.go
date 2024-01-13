@@ -16,12 +16,6 @@ func (r *Ranking) String() string {
 	return fmt.Sprintf("Count=%d : TotalPP=%.0f : Scores=%v", r.count, r.GetTotalPP(), Scores(r.scores[:r.count]))
 }
 
-func (r *Ranking) Clone() (res Ranking) {
-	res.count = r.count
-	copy(res.scores[:], r.scores[:])
-	return
-}
-
 func (r *Ranking) findPosition(s *Score) (valid bool, pos int8) {
 	for pos = 0; pos < r.count; pos++ {
 		// Return early if the score was already added or
