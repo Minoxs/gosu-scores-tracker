@@ -78,6 +78,10 @@ func (r *Ranking) GetTotalPP() (res float64) {
 	return
 }
 
+func (r Ranking) Scores() Scores {
+	return r.scores[:r.count]
+}
+
 func (r Ranking) Count() int {
 	return int(r.count)
 }
