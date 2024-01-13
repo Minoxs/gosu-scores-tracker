@@ -2,10 +2,9 @@ package phantom
 
 import (
 	"errors"
-	"fmt"
 	"github.com/minoxs/osu-phantom/pkg/osu"
 	"github.com/minoxs/osu-phantom/pkg/osu/player"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 )
@@ -13,7 +12,6 @@ import (
 // TODO CONFIGURE START DATE
 // TODO AVOID RECALCULATING PP FOR SCORE (CHECK SCORE ID)
 // TODO LAZY SCORE CALCULATION
-// TODO USE SLOG IN OSU PHANTOM
 // TODO CACHE DIFFICULTY SCORE INSTEAD OF BEATMAP
 
 type (
@@ -27,6 +25,7 @@ type (
 		UserID   int
 		Username string
 		Provider AuthProvider
+		Logger   *slog.Logger
 
 		ranking    player.Ranking
 		LastUpdate time.Time
@@ -44,6 +43,7 @@ func Login(provider AuthProvider, username string) (client *Client, err error) {
 	client = &Client{Username: username, Provider: provider}
 	client.UserID, err = osu.GetUserID(provider.GetToken(), client.Username)
 	client.LastUpdate = time.Now()
+	client.Logger = slog.Default().With("Username", username)
 
 	// API only returns error if request failed.
 	// If user was not found, return ErrUserNotFound.
@@ -64,12 +64,12 @@ func Login(provider AuthProvider, username string) (client *Client, err error) {
 // Will stop routine after maxIdle without new scores.
 // Returns a function that will prematurely stop the routine if called.
 func (c *Client) KeepUpdated(checkInterval time.Duration, maxIdle time.Duration) {
-	c.log("Running KeepUpdated")
+	c.Logger.Info("Running KeepUpdated")
 	defer func() {
 		if r := recover(); r != nil {
-			c.log("Recovered from panic: ", r)
+			c.Logger.Error("Recovered from panic", "Panic", r)
 		}
-		c.log("Stopping KeepUpdated routine")
+		c.Logger.Info("Stopping KeepUpdated routine")
 	}()
 
 	var interval = time.NewTimer(0)
@@ -78,16 +78,17 @@ func (c *Client) KeepUpdated(checkInterval time.Duration, maxIdle time.Duration)
 	for {
 		select {
 		case <-interval.C:
-			c.log("Getting new scores...")
+			c.Logger.Debug("Getting new scores")
 
 			// Stop if idle for too long
 			if !c.Update() && time.Now().Sub(c.LastUpdate) > maxIdle {
 				return
 			}
 
+			c.Logger.Debug("New scores", "Ranking", c.ranking)
+
 			// Reset timer
 			interval.Reset(checkInterval)
-			c.log(&c.ranking)
 		}
 	}
 }
@@ -104,11 +105,11 @@ func (c *Client) Update() bool {
 	}
 
 	var scores = c.getRecentScores()
-	c.log("Score count: ", len(scores))
+	c.Logger.Debug("Recent scores", "Count", len(scores))
 
 	// Check if there are new scores
 	if len(scores) == 0 || scores[0].CreatedAt.Compare(c.LastUpdate) <= 0 {
-		c.log("No updates...")
+		c.Logger.Debug("No new scores")
 		return false
 	}
 
@@ -118,7 +119,7 @@ func (c *Client) Update() bool {
 			break
 		}
 
-		c.log("Potential new score: ", score.ID)
+		c.Logger.Info("Possible new score", "ID", score.ID, "BeatmapID", score.Beatmap.ID, "Title", score.BeatmapSet.Title)
 		c.ranking.AddScore(score)
 	}
 
@@ -133,11 +134,6 @@ func (c *Client) Ranking() player.Ranking {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	return c.ranking
-}
-
-func (c *Client) log(v ...any) {
-	var l = "PhantomClient." + c.Username + " : " + fmt.Sprint(v...)
-	log.Println(l)
 }
 
 func (c *Client) getRecentScores() player.Scores {
