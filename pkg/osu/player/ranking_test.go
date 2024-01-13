@@ -323,6 +323,29 @@ func TestRanking_Clone(t *testing.T) {
 	}
 }
 
+func TestRanking_Getters(t *testing.T) {
+	var expected = Ranking{
+		count: 5,
+		scores: [RankSize]Score{
+			{PP: 336.242},
+			{PP: 332.834},
+			{PP: 330.403},
+			{PP: 328.735},
+			{PP: 328.239},
+		},
+	}
+	assertEqual(t, int(expected.count), expected.Count())
+
+	var scores = expected.Scores()
+	assert(t, &scores[0] != &expected.scores[0], "Score getter points to backing array")
+	assertEqual(t, int(expected.count), len(scores))
+
+	assertEqual(t, expected.scores[0].PP, scores[0].PP)
+	scores[0].PP = 0
+	assertEqual(t, 0, scores[0].PP)
+	assert(t, expected.scores[0].PP > scores[0].PP, "Modification in copied slice modified backing array")
+}
+
 func BenchmarkRanking_AddScore(b *testing.B) {
 	var testCases = getTestCases()
 	for _, testCase := range testCases {
