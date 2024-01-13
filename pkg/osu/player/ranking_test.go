@@ -192,7 +192,7 @@ func TestRanking_AddScoreUniqueScoreID(t *testing.T) {
 			for _, score := range testCase.Scores {
 				rank.AddScore(score)
 			}
-			var ids = make(map[int]bool)
+			var ids = make(map[int64]bool)
 			for _, score := range rank.scores {
 				if score.ID == 0 {
 					continue
@@ -214,7 +214,7 @@ func TestRanking_AddScoreUniqueBeatmapID(t *testing.T) {
 			for _, score := range testCase.Scores {
 				rank.AddScore(score)
 			}
-			var ids = make(map[int]bool)
+			var ids = make(map[int64]bool)
 			for _, score := range rank.scores {
 				if score.ID == 0 {
 					continue

@@ -123,7 +123,7 @@ func GetBeatmapScores(token *GuestToken, userID int, beatmapID int) player.Score
 }
 
 // TODO support mode
-func DownloadBeatmap(id int) (buf []byte, err error) {
+func DownloadBeatmap(id int64) (buf []byte, err error) {
 	if beatmap, found := cache.Get(id); found {
 		return beatmap, nil
 	}
