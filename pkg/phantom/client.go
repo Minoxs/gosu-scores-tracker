@@ -134,10 +134,7 @@ func (c *Client) Ranking() player.Ranking {
 
 func (c *Client) processNewScores(scores player.Scores) {
 	// Keep track of added scores
-	var (
-		count     int
-		newScores [10]NewScore
-	)
+	var newScores []NewScore
 
 	// Add new scores to the ranks
 	for _, score := range scores {
@@ -149,19 +146,18 @@ func (c *Client) processNewScores(scores player.Scores) {
 		c.Logger.Debug("Possible new score", "ID", score.ID, "BeatmapID", score.Beatmap.ID, "Title", score.BeatmapSet.Title, "PP", score.PP)
 		if rank, added := c.ranking.AddScore(score); added {
 			c.Logger.Info("New score", "ID", score.ID, "BeatmapID", score.Beatmap.ID, "Title", score.BeatmapSet.Title, "PP", score.PP)
-			newScores[count] = NewScore{
+			newScores = append(newScores, NewScore{
 				BeatmapID: score.Beatmap.ID,
 				Position:  rank,
 				Title:     score.BeatmapSet.Title,
 				PP:        score.PP,
-			}
-			count++
+			})
 		}
 	}
 
 	// Fire new scores event
 	if c.OnNewScores != nil {
-		c.OnNewScores(newScores[:count])
+		c.OnNewScores(newScores)
 	}
 
 	// Update last signal
