@@ -20,8 +20,10 @@ type (
 
 	// NewScore contains information of a new score
 	NewScore struct {
-		Position int
-		player.Score
+		BeatmapID int
+		Position  int
+		Title     string
+		PP        float64
 	}
 
 	// Client handles the tracking of a user's scores
@@ -148,8 +150,10 @@ func (c *Client) processNewScores(scores player.Scores) {
 		if rank, added := c.ranking.AddScore(score); added {
 			c.Logger.Info("New score", "ID", score.ID, "BeatmapID", score.Beatmap.ID, "Title", score.BeatmapSet.Title, "PP", score.PP)
 			newScores[count] = NewScore{
-				Position: rank,
-				Score:    score,
+				BeatmapID: score.Beatmap.ID,
+				Position:  rank,
+				Title:     score.BeatmapSet.Title,
+				PP:        score.PP,
 			}
 			count++
 		}
