@@ -20,7 +20,7 @@ type (
 
 	// NewScore contains information of a new score
 	NewScore struct {
-		BeatmapID int
+		BeatmapID int64
 		Position  int
 		Title     string
 		PP        float64

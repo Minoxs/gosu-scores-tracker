@@ -16,14 +16,14 @@ type BeatmapCache struct {
 
 	lock  sync.RWMutex
 	size  int
-	keys  []int
-	cache map[int][]byte
+	keys  []int64
+	cache map[int64][]byte
 }
 
 func (b *BeatmapCache) Init() *BeatmapCache {
 	b.size = 0
-	b.keys = make([]int, 0)
-	b.cache = make(map[int][]byte)
+	b.keys = make([]int64, 0)
+	b.cache = make(map[int64][]byte)
 
 	return b
 }
@@ -44,7 +44,7 @@ func (b *BeatmapCache) ensureSpace(size int) bool {
 	return true
 }
 
-func (b *BeatmapCache) Get(beatmapID int) (beatmap []byte, found bool) {
+func (b *BeatmapCache) Get(beatmapID int64) (beatmap []byte, found bool) {
 	b.lock.RLock()
 	defer b.lock.RUnlock()
 
@@ -53,7 +53,7 @@ func (b *BeatmapCache) Get(beatmapID int) (beatmap []byte, found bool) {
 	return
 }
 
-func (b *BeatmapCache) Set(beatmapID int, beatmap []byte) {
+func (b *BeatmapCache) Set(beatmapID int64, beatmap []byte) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 

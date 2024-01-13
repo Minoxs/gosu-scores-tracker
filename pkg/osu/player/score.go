@@ -15,7 +15,7 @@ type statistics struct {
 }
 
 type Beatmap struct {
-	ID            int     `json:"id"`
+	ID            int64   `json:"id"`
 	Version       string  `json:"version"`
 	StarRating    float32 `json:"difficulty_rating"`
 	Status        string  `json:"status"`
@@ -35,7 +35,7 @@ type BeatmapSet struct {
 }
 
 type Score struct {
-	ID         int        `json:"id"`
+	ID         int64      `json:"id"`
 	UserID     int        `json:"user_id"`
 	CreatedAt  time.Time  `json:"created_at"`
 	Accuracy   float32    `json:"accuracy"`

@@ -98,7 +98,7 @@ func TestGetSet(t *testing.T) {
 	assertEqual(t, true, found)
 	assertStrictEqual(t, expected, actual)
 
-	for i := 0; i < 10; i++ {
+	for i := int64(0); i < 10; i++ {
 		_, found = cache.Get(i)
 		assertEqual(t, false, found)
 	}
