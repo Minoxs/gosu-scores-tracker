@@ -83,3 +83,7 @@ func (r *Ranking) GetTotalPP() (res float64) {
 	res = math.Floor(res)
 	return
 }
+
+func (r Ranking) Count() int {
+	return int(r.count)
+}
