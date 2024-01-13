@@ -10,8 +10,6 @@ import (
 )
 
 // TODO CONFIGURE START DATE
-// TODO AVOID RECALCULATING PP FOR SCORE (CHECK SCORE ID)
-// TODO LAZY SCORE CALCULATION
 // TODO CACHE DIFFICULTY SCORE INSTEAD OF BEATMAP
 
 type (
@@ -115,11 +113,12 @@ func (c *Client) Update() bool {
 
 	// Add new scores to the ranks
 	for _, score := range scores {
-		if score.CreatedAt.Before(c.LastUpdate) {
+		if score.CreatedAt.Compare(c.LastUpdate) <= 0 {
 			break
 		}
 
-		c.Logger.Info("Possible new score", "ID", score.ID, "BeatmapID", score.Beatmap.ID, "Title", score.BeatmapSet.Title)
+		osu.GetPP(&score)
+		c.Logger.Info("Possible new score", "ID", score.ID, "BeatmapID", score.Beatmap.ID, "Title", score.BeatmapSet.Title, "PP", score.PP)
 		c.ranking.AddScore(score)
 	}
 

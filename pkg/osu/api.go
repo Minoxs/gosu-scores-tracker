@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/minoxs/osu-phantom/pkg/osu/crosu"
 	"github.com/minoxs/osu-phantom/pkg/osu/player"
 	"io"
 	"log"
@@ -31,35 +30,6 @@ func createRequestBody(i interface{}) io.Reader {
 		panic(err)
 	}
 	return bytes.NewBuffer(data)
-}
-
-func calculatePP(score *player.Score) {
-	if score.PP > 0 {
-		return
-	}
-
-	var beatmap, err = DownloadBeatmap(score.Beatmap.ID)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	score.PP = crosu.GetPPFromMap(
-		beatmap,
-		score.MaxCombo,
-		score.Statistics.Count300,
-		score.Statistics.Count100,
-		score.Statistics.Count050,
-		score.Statistics.CountMiss,
-		crosu.ModTypeFromStringArray(score.Mods),
-		crosu.GameModeFromString(score.Mode),
-	)
-}
-
-func fillScoresPP(scores player.Scores) {
-	for i := range scores {
-		calculatePP(&scores[i])
-	}
 }
 
 func GetGuestToken(c Credentials) (*GuestToken, error) {
@@ -128,7 +98,6 @@ func GetRecentScores(token *GuestToken, userid int) player.Scores {
 		return nil
 	}
 
-	fillScoresPP(scores)
 	return scores
 }
 
@@ -152,7 +121,6 @@ func GetBeatmapScores(token *GuestToken, userID int, beatmapID int) player.Score
 		return nil
 	}
 
-	fillScoresPP(s.Scores)
 	return s.Scores
 }
 
