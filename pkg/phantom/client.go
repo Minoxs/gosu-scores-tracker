@@ -18,6 +18,12 @@ type (
 		GetToken() *osu.GuestToken
 	}
 
+	// NewScore contains information of a new score
+	NewScore struct {
+		Position int
+		player.Score
+	}
+
 	// Client handles the tracking of a user's scores
 	Client struct {
 		UserID   int
@@ -25,8 +31,9 @@ type (
 		Provider AuthProvider
 		Logger   *slog.Logger
 
-		ranking    player.Ranking
-		LastUpdate time.Time
+		OnNewScores func([]NewScore)
+		ranking     player.Ranking
+		LastUpdate  time.Time
 
 		lock sync.Mutex
 	}
@@ -111,6 +118,12 @@ func (c *Client) Update() bool {
 		return false
 	}
 
+	// Keep track of added scores
+	var (
+		count     int
+		newScores [10]NewScore
+	)
+
 	// Add new scores to the ranks
 	for _, score := range scores {
 		if score.CreatedAt.Compare(c.LastUpdate) <= 0 {
@@ -118,8 +131,20 @@ func (c *Client) Update() bool {
 		}
 
 		osu.GetPP(&score)
-		c.Logger.Info("Possible new score", "ID", score.ID, "BeatmapID", score.Beatmap.ID, "Title", score.BeatmapSet.Title, "PP", score.PP)
-		c.ranking.AddScore(score)
+		c.Logger.Debug("Possible new score", "ID", score.ID, "BeatmapID", score.Beatmap.ID, "Title", score.BeatmapSet.Title, "PP", score.PP)
+		if rank, added := c.ranking.AddScore(score); added {
+			c.Logger.Info("New score", "ID", score.ID, "BeatmapID", score.Beatmap.ID, "Title", score.BeatmapSet.Title, "PP", score.PP)
+			newScores[count] = NewScore{
+				Position: rank,
+				Score:    score,
+			}
+			count++
+		}
+	}
+
+	// Fire new scores event
+	if c.OnNewScores != nil {
+		c.OnNewScores(newScores[:count])
 	}
 
 	// Update last signal
