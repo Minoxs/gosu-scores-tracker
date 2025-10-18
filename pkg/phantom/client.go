@@ -2,11 +2,12 @@ package phantom
 
 import (
 	"errors"
-	"github.com/minoxs/osu-phantom/pkg/osu"
-	"github.com/minoxs/osu-phantom/pkg/osu/player"
 	"log/slog"
 	"sync"
 	"time"
+
+	"github.com/minoxs/osu-phantom/pkg/osu"
+	"github.com/minoxs/osu-phantom/pkg/osu/player"
 )
 
 // TODO CONFIGURE START DATE
@@ -20,10 +21,8 @@ type (
 
 	// NewScore contains information of a new score
 	NewScore struct {
-		BeatmapID int64
-		Position  int
-		Title     string
-		PP        float64
+		Rank  int
+		Score player.Score
 	}
 
 	// Client handles the tracking of a user's scores
@@ -130,6 +129,13 @@ func (c *Client) Ranking() player.Ranking {
 	return c.ranking
 }
 
+// GetTotalPP safely returns total PP
+func (c *Client) GetTotalPP() float64 {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	return c.ranking.GetTotalPP()
+}
+
 func (c *Client) processNewScores(scores player.Scores) {
 	// Keep track of added scores
 	var newScores []NewScore
@@ -145,10 +151,8 @@ func (c *Client) processNewScores(scores player.Scores) {
 		if rank, added := c.ranking.AddScore(score); added {
 			c.Logger.Info("New score", "ID", score.ID, "BeatmapID", score.Beatmap.ID, "Title", score.BeatmapSet.Title, "PP", score.PP)
 			newScores = append(newScores, NewScore{
-				BeatmapID: score.Beatmap.ID,
-				Position:  rank,
-				Title:     score.BeatmapSet.Title,
-				PP:        score.PP,
+				Rank:  rank,
+				Score: score,
 			})
 		}
 	}
