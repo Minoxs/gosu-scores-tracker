@@ -1,11 +1,12 @@
 package main
 
 import (
-	"github.com/minoxs/osu-phantom/pkg/osu"
-	"github.com/minoxs/osu-phantom/pkg/phantom"
 	"log"
 	"os"
 	"time"
+
+	"github.com/minoxs/osu-phantom/pkg/osu"
+	"github.com/minoxs/osu-phantom/pkg/phantom"
 )
 
 func FatalError(err error) {
@@ -41,7 +42,7 @@ func main() {
 
 	var provider = &phantom.DefaultProvider{Token: token}
 
-	client, err = phantom.Login(provider, username)
+	client, err = phantom.Login(provider, username, time.Now())
 	FatalError(err)
 
 	client.KeepUpdated(1*time.Minute, 30*time.Minute)

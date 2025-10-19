@@ -45,10 +45,10 @@ var ErrUserNotFound = errors.New("user not found")
 // Login will look for the user and return a phantom client with the given user.
 // Returns ErrUserNotFound if user is not found, or some HTTP error if failed to fetch user.
 // Call Client.KeepUpdated to keep rankings constantly updated, or manually update with Client.Update.
-func Login(provider AuthProvider, username string) (client *Client, err error) {
+func Login(provider AuthProvider, username string, start time.Time) (client *Client, err error) {
 	client = &Client{Username: username, Provider: provider}
 	client.UserID, err = osu.GetUserID(provider.GetToken(), client.Username)
-	client.LastUpdate = time.Now()
+	client.LastUpdate = start
 	client.Logger = slog.Default().With("Username", username)
 
 	// API only returns error if request failed.
