@@ -159,7 +159,7 @@ func (c *Client) processNewScores(scores player.Scores) {
 
 	// Fire new scores event
 	if c.OnNewScores != nil {
-		c.OnNewScores(newScores)
+		go c.OnNewScores(newScores)
 	}
 
 	// Update last signal
