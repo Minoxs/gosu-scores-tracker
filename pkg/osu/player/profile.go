@@ -10,6 +10,7 @@ type Profile struct {
 	AvatarURL   string    `json:"avatar_url"`
 	CoverURL    string    `json:"cover_url"`
 	IsSupporter bool      `json:"is_supporter"`
+	IsOnline    bool      `json:"is_online"`
 	JoinDate    time.Time `json:"join_date"`
 
 	Country struct {
