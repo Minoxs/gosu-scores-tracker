@@ -65,6 +65,18 @@ func Login(provider AuthProvider, username string, start time.Time) (client *Cli
 	return
 }
 
+// NewClient builds a tracking client for a user whose id is already known,
+// skipping the username lookup Login performs. Scores set after start are tracked.
+func NewClient(provider AuthProvider, userID int, username string, start time.Time) *Client {
+	return &Client{
+		UserID:     userID,
+		Username:   username,
+		Provider:   provider,
+		LastUpdate: start,
+		Logger:     slog.Default().With("Username", username),
+	}
+}
+
 // KeepUpdated will fetch new scores from the API in the interval configured.
 // Will stop routine after maxIdle without new scores.
 func (c *Client) KeepUpdated(checkInterval time.Duration, maxIdle time.Duration) {
