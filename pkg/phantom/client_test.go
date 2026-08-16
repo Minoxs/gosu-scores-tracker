@@ -41,33 +41,33 @@ var testScores = player.Scores{
 }
 
 func TestClient_ProcessNewScores(t *testing.T) {
-	var scoreCount int
+	var counted = make(chan int, 1)
 
 	var test = &Client{
 		Logger: slog.Default(),
 		OnNewScores: func(scores []NewScore) {
-			scoreCount = len(scores)
+			counted <- len(scores)
 		},
 	}
 
 	test.processNewScores(testScores)
-	if scoreCount != 4 {
+	if scoreCount := <-counted; scoreCount != 4 {
 		t.Fatal("Score count mismatch")
 	}
 }
 
 func TestClient_Ranking(t *testing.T) {
-	var scoreCount int
+	var counted = make(chan int, 1)
 
 	var test = &Client{
 		Logger: slog.Default(),
 		OnNewScores: func(scores []NewScore) {
-			scoreCount = len(scores)
+			counted <- len(scores)
 		},
 	}
 
 	test.processNewScores(testScores)
-	if scoreCount != test.Ranking().Count()+1 {
+	if scoreCount := <-counted; scoreCount != test.Ranking().Count()+1 {
 		t.Fatal("Score count mismatch")
 	}
 }
