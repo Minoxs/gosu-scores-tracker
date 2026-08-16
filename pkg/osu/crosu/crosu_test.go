@@ -1,6 +1,7 @@
 package crosu
 
 import (
+	"math"
 	"os"
 	"testing"
 )
@@ -36,6 +37,44 @@ func TestGetPPFromFile(t *testing.T) {
 	var pp = GetPPFromFile(testFilePath, 909, 909, 0, 0, 0, ModType(0), OSU)
 	assert(t, "PP calculation failed", pp > 0)
 	assert(t, "PP is too low", pp > 200)
+}
+
+func TestGetOsuDifficultyAttributes(t *testing.T) {
+	var f, err = os.ReadFile(testFilePath)
+	assertNoErr(t, err)
+
+	var attr, ok = GetOsuDifficultyAttributes(f, ModType(0))
+	assert(t, "Failed to calculate attributes", ok)
+	assert(t, "Star rating too low", attr.Stars > 5)
+	assert(t, "Max combo not calculated", attr.MaxCombo > 0)
+}
+
+// Computing pp from cached attributes must match computing it straight from the map.
+func TestGetOsuPPMatchesMap(t *testing.T) {
+	var f, err = os.ReadFile(testFilePath)
+	assertNoErr(t, err)
+
+	var cases = []struct {
+		name string
+		mods ModType
+	}{
+		{"NoMod", ModType(0)},
+		{"HDDT", HD | DT},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var attr, ok = GetOsuDifficultyAttributes(f, c.mods)
+			assert(t, "Failed to calculate attributes", ok)
+
+			var combo = attr.MaxCombo
+			var direct = GetPPFromMap(f, combo, combo, 0, 0, 0, c.mods, OSU)
+			var cached = GetOsuPP(attr, c.mods, combo, combo, 0, 0, 0)
+
+			assert(t, "PP is too low", cached > 200)
+			assert(t, "Cached pp does not match map pp", math.Abs(direct-cached) < 1e-6)
+		})
+	}
 }
 
 func BenchmarkGetPPFromDLL(b *testing.B) {
