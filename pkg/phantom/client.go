@@ -11,7 +11,6 @@ import (
 )
 
 // TODO CONFIGURE START DATE
-// TODO CACHE DIFFICULTY SCORE INSTEAD OF BEATMAP
 
 type (
 	// AuthProvider is required for requests which require OAuth authorization
