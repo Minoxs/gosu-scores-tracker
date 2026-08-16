@@ -1,5 +1,10 @@
 package osu
 
+import "errors"
+
+// ErrUserNotFound is returned by profile lookups when the osu API has no such user.
+var ErrUserNotFound = errors.New("user not found")
+
 func createHeader(authType, authValue string) string {
 	return authType + " " + authValue
 }

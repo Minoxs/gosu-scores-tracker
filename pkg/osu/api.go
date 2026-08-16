@@ -74,6 +74,49 @@ func GetUserID(token *GuestToken, username string) (int, error) {
 	return body.ID, err
 }
 
+func decodeProfile(res *http.Response) (*player.Profile, error) {
+	defer res.Body.Close()
+
+	if res.StatusCode == 404 {
+		return nil, ErrUserNotFound
+	}
+	if res.StatusCode != 200 {
+		return nil, errors.New("status_code=" + res.Status)
+	}
+
+	profile := &player.Profile{}
+	if err := json.NewDecoder(res.Body).Decode(profile); err != nil {
+		return nil, err
+	}
+	return profile, nil
+}
+
+// GetUser fetches a full osu!standard profile by user id.
+// Returns ErrUserNotFound when no user carries that id.
+func GetUser(token *GuestToken, id int64) (*player.Profile, error) {
+	req, _ := http.NewRequest(GET, APIv2URL(fmt.Sprintf("users/%d/osu", id)), nil)
+	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
+
+	res, err := apiClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return decodeProfile(res)
+}
+
+// GetUserByName fetches a full osu!standard profile by username.
+// Returns ErrUserNotFound when no user carries that name.
+func GetUserByName(token *GuestToken, username string) (*player.Profile, error) {
+	req, _ := http.NewRequest(GET, APIv2URL(fmt.Sprintf("users/%s/osu?key=username", username)), nil)
+	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
+
+	res, err := apiClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return decodeProfile(res)
+}
+
 func GetRecentScores(token *GuestToken, userid int) player.Scores {
 	endpoint := fmt.Sprintf("users/%d/scores/recent/?mode=osu&limit=10", userid)
 	// TODO CONFIGURE LIMIT
