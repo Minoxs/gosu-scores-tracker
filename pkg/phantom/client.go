@@ -77,6 +77,20 @@ func NewClient(provider AuthProvider, userID int, username string, start time.Ti
 	}
 }
 
+// Restore rebuilds the ranking from previously persisted scores and advances
+// LastUpdate past the newest of them, so polling resumes without re-counting them.
+func (c *Client) Restore(scores player.Scores) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	for _, s := range scores {
+		c.ranking.AddScore(s)
+		if s.CreatedAt.After(c.LastUpdate) {
+			c.LastUpdate = s.CreatedAt
+		}
+	}
+}
+
 // KeepUpdated will fetch new scores from the API in the interval configured.
 // Will stop routine after maxIdle without new scores.
 func (c *Client) KeepUpdated(checkInterval time.Duration, maxIdle time.Duration) {
