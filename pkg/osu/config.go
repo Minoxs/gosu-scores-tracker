@@ -17,9 +17,11 @@ const (
 )
 
 var (
-	// apiClient is the client used for requests in this package
+	// apiClient is the client used for requests in this package. Its transport
+	// paces every request through globalPacer to respect the osu! API rate limit.
 	apiClient = &http.Client{
-		Timeout: 30 * time.Second,
+		Timeout:   30 * time.Second,
+		Transport: &throttledTransport{base: http.DefaultTransport, pacer: globalPacer},
 	}
 
 	// cache is used to store beatmaps without having to ask the API every time. Disabled by default.
