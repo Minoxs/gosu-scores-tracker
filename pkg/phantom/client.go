@@ -121,29 +121,38 @@ func (c *Client) KeepUpdated(checkInterval time.Duration, maxIdle time.Duration)
 	}
 }
 
-// Update will check for new scores and update the ranking.
-// Will not fetch from the API if it's been less than 30s since last fetch.
-// Returns true when new scores were received from the API, even if they don't go into the ranking.
+// recentScorePageSize is the per-request score count. The osu! API caps it at 100.
+const recentScorePageSize = 100
+
+// Update checks for new scores and folds them into the ranking. It pages through
+// recent scores by offset while every score on a page is newer than the previous
+// watermark, so a burst larger than one page is not missed. Returns true when at
+// least one newer score was seen.
 func (c *Client) Update() bool {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	// Rate limit update requests to 30 seconds
-	if time.Now().Sub(c.LastUpdate) < 30*time.Second {
-		return false
+	prev := c.LastUpdate
+	var newest time.Time
+
+	for offset := 0; ; offset += recentScorePageSize {
+		page := osu.GetRecentScores(c.Provider.GetToken(), c.UserID, recentScorePageSize, offset)
+		c.Logger.Debug("Recent scores", "Count", len(page), "Offset", offset)
+		if len(page) == 0 {
+			break
+		}
+		if offset == 0 {
+			newest = page[0].CreatedAt
+		}
+		if !c.foldPage(page, prev) || len(page) < recentScorePageSize {
+			break
+		}
 	}
 
-	var scores = c.getRecentScores()
-	c.Logger.Debug("Recent scores", "Count", len(scores))
-
-	// Check if there are new scores
-	if len(scores) == 0 || scores[0].CreatedAt.Compare(c.LastUpdate) <= 0 {
-		c.Logger.Debug("No new scores")
-		return false
+	if newest.After(c.LastUpdate) {
+		c.LastUpdate = newest
 	}
-	c.processNewScores(scores)
-
-	return true
+	return newest.After(prev)
 }
 
 // Ranking safely returns client ranking.
@@ -161,13 +170,17 @@ func (c *Client) GetTotalPP() float64 {
 	return c.ranking.GetTotalPP()
 }
 
-func (c *Client) processNewScores(scores player.Scores) {
-	// Keep track of added scores
+// foldPage adds every score on the page newer than prev into the ranking. It
+// stops at the first score at or older than prev. pageAllNew reports whether the
+// whole page was newer than prev, meaning more new scores may sit on the next page.
+func (c *Client) foldPage(page player.Scores, prev time.Time) (pageAllNew bool) {
+	pageAllNew = true
 	var newScores []NewScore
 
-	// Add new scores to the ranks
-	for _, score := range scores {
-		if score.CreatedAt.Compare(c.LastUpdate) <= 0 {
+	for i := range page {
+		score := page[i]
+		if score.CreatedAt.Compare(prev) <= 0 {
+			pageAllNew = false
 			break
 		}
 
@@ -175,24 +188,14 @@ func (c *Client) processNewScores(scores player.Scores) {
 		c.Logger.Debug("Possible new score", "ID", score.ID, "BeatmapID", score.Beatmap.ID, "Title", score.BeatmapSet.Title, "PP", score.PP)
 		if rank, added := c.ranking.AddScore(score); added {
 			c.Logger.Info("New score", "ID", score.ID, "BeatmapID", score.Beatmap.ID, "Title", score.BeatmapSet.Title, "PP", score.PP)
-			newScores = append(newScores, NewScore{
-				Rank:  rank,
-				Score: score,
-			})
+			newScores = append(newScores, NewScore{Rank: rank, Score: score})
 		}
 	}
 
-	// Fire new scores event
-	if c.OnNewScores != nil {
+	if c.OnNewScores != nil && len(newScores) > 0 {
 		go c.OnNewScores(newScores)
 	}
-
-	// Update last signal
-	c.LastUpdate = scores[0].CreatedAt
-}
-
-func (c *Client) getRecentScores() player.Scores {
-	return osu.GetRecentScores(c.Provider.GetToken(), c.UserID)
+	return pageAllNew
 }
 
 func (c *Client) getBeatmapScores(beatmapID int) player.Scores {

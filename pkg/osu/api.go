@@ -117,10 +117,11 @@ func GetUserByName(token *GuestToken, username string) (*player.Profile, error) 
 	return decodeProfile(res)
 }
 
-func GetRecentScores(token *GuestToken, userid int) player.Scores {
-	endpoint := fmt.Sprintf("users/%d/scores/recent/?mode=osu&limit=10", userid)
-	// TODO CONFIGURE LIMIT
-	// TODO ALLOW FOR SCORE PAGINATION
+// GetRecentScores fetches one page of a user's recent osu!standard scores,
+// newest first. limit is capped at 100 by the osu! API; offset pages past the
+// newest results.
+func GetRecentScores(token *GuestToken, userid, limit, offset int) player.Scores {
+	endpoint := fmt.Sprintf("users/%d/scores/recent/?mode=osu&limit=%d&offset=%d", userid, limit, offset)
 
 	req, _ := http.NewRequest(GET, APIv2URL(endpoint), nil)
 	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))

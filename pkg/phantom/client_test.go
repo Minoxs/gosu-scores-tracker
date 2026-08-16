@@ -40,7 +40,7 @@ var testScores = player.Scores{
 	},
 }
 
-func TestClient_ProcessNewScores(t *testing.T) {
+func TestClient_FoldPage(t *testing.T) {
 	var counted = make(chan int, 1)
 
 	var test = &Client{
@@ -50,7 +50,7 @@ func TestClient_ProcessNewScores(t *testing.T) {
 		},
 	}
 
-	test.processNewScores(testScores)
+	test.foldPage(testScores, time.Time{})
 	if scoreCount := <-counted; scoreCount != 4 {
 		t.Fatal("Score count mismatch")
 	}
@@ -66,25 +66,23 @@ func TestClient_Ranking(t *testing.T) {
 		},
 	}
 
-	test.processNewScores(testScores)
+	test.foldPage(testScores, time.Time{})
 	if scoreCount := <-counted; scoreCount != test.Ranking().Count()+1 {
 		t.Fatal("Score count mismatch")
 	}
 }
 
-func BenchmarkClient_ProcessNewScores(b *testing.B) {
+func BenchmarkClient_FoldPage(b *testing.B) {
 	var test = &Client{
 		Logger: slog.Default(),
 		OnNewScores: func(scores []NewScore) {
 			_ = len(scores)
 		},
 	}
-	var ref = test.LastUpdate
 
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		test.LastUpdate = ref
-		test.processNewScores(testScores)
+		test.foldPage(testScores, time.Time{})
 	}
 }
 
@@ -95,7 +93,7 @@ func BenchmarkClient_Ranking(b *testing.B) {
 			_ = len(scores)
 		},
 	}
-	test.processNewScores(testScores)
+	test.foldPage(testScores, time.Time{})
 
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
