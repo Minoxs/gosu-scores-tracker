@@ -28,6 +28,14 @@ func (b *BeatmapCache) Init() *BeatmapCache {
 	return b
 }
 
+// SetLimits updates the cache bounds. Zero for either disables caching.
+func (b *BeatmapCache) SetLimits(maxUnitSize, cacheSize uint32) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+	b.MaxUnitSize = maxUnitSize
+	b.CacheSize = cacheSize
+}
+
 func (b *BeatmapCache) ensureSpace(size int) bool {
 	if size > int(b.MaxUnitSize) {
 		return false

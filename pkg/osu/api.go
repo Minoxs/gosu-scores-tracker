@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/minoxs/osu-phantom/pkg/osu/optimization"
 	"github.com/minoxs/osu-phantom/pkg/osu/player"
 	"io"
 	"log/slog"
@@ -166,9 +167,8 @@ func GetBeatmapScores(token *GuestToken, userID int, beatmapID int) player.Score
 	return s.Scores
 }
 
-// TODO support mode
 func DownloadBeatmap(id int64) (buf []byte, err error) {
-	if beatmap, found := cache.Get(id); found {
+	if beatmap, found := optimization.GetBeatmap(id); found {
 		return beatmap, nil
 	}
 
@@ -189,7 +189,7 @@ func DownloadBeatmap(id int64) (buf []byte, err error) {
 	buf, err = io.ReadAll(res.Body)
 	slog.Info("Beatmap downloaded", "ID", id, "Size", len(buf))
 	if err == nil {
-		cache.Set(id, buf)
+		optimization.PutBeatmap(id, buf)
 	}
 
 	return
