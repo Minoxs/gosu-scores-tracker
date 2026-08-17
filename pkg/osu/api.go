@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/minoxs/osu-phantom/pkg/osu/optimization"
 	"github.com/minoxs/osu-phantom/pkg/osu/player"
 	"io"
 	"log/slog"
@@ -74,10 +75,54 @@ func GetUserID(token *GuestToken, username string) (int, error) {
 	return body.ID, err
 }
 
-func GetRecentScores(token *GuestToken, userid int) player.Scores {
-	endpoint := fmt.Sprintf("users/%d/scores/recent/?mode=osu&limit=10", userid)
-	// TODO CONFIGURE LIMIT
-	// TODO ALLOW FOR SCORE PAGINATION
+func decodeProfile(res *http.Response) (*player.Profile, error) {
+	defer res.Body.Close()
+
+	if res.StatusCode == 404 {
+		return nil, ErrUserNotFound
+	}
+	if res.StatusCode != 200 {
+		return nil, errors.New("status_code=" + res.Status)
+	}
+
+	profile := &player.Profile{}
+	if err := json.NewDecoder(res.Body).Decode(profile); err != nil {
+		return nil, err
+	}
+	return profile, nil
+}
+
+// GetUser fetches a full osu!standard profile by user id.
+// Returns ErrUserNotFound when no user carries that id.
+func GetUser(token *GuestToken, id int64) (*player.Profile, error) {
+	req, _ := http.NewRequest(GET, APIv2URL(fmt.Sprintf("users/%d/osu", id)), nil)
+	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
+
+	res, err := apiClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return decodeProfile(res)
+}
+
+// GetUserByName fetches a full osu!standard profile by username.
+// Returns ErrUserNotFound when no user carries that name.
+func GetUserByName(token *GuestToken, username string) (*player.Profile, error) {
+	req, _ := http.NewRequest(GET, APIv2URL(fmt.Sprintf("users/%s/osu?key=username", username)), nil)
+	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
+
+	res, err := apiClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return decodeProfile(res)
+}
+
+// GetRecentScores fetches one page of a user's recent osu!standard scores,
+// newest first. limit is capped at 100 by the osu! API; offset pages past the
+// newest results.
+func GetRecentScores(token *GuestToken, userid, limit, offset int) player.Scores {
+	endpoint := fmt.Sprintf("users/%d/scores/recent/?mode=osu&limit=%d&offset=%d", userid, limit, offset)
 
 	req, _ := http.NewRequest(GET, APIv2URL(endpoint), nil)
 	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
@@ -122,9 +167,8 @@ func GetBeatmapScores(token *GuestToken, userID int, beatmapID int) player.Score
 	return s.Scores
 }
 
-// TODO support mode
 func DownloadBeatmap(id int64) (buf []byte, err error) {
-	if beatmap, found := cache.Get(id); found {
+	if beatmap, found := optimization.GetBeatmap(id); found {
 		return beatmap, nil
 	}
 
@@ -145,7 +189,7 @@ func DownloadBeatmap(id int64) (buf []byte, err error) {
 	buf, err = io.ReadAll(res.Body)
 	slog.Info("Beatmap downloaded", "ID", id, "Size", len(buf))
 	if err == nil {
-		cache.Set(id, buf)
+		optimization.PutBeatmap(id, buf)
 	}
 
 	return

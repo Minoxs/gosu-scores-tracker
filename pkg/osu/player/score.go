@@ -19,6 +19,8 @@ type Beatmap struct {
 	Version       string  `json:"version"`
 	StarRating    float32 `json:"difficulty_rating"`
 	Status        string  `json:"status"`
+	Mode          string  `json:"mode"`
+	MaxCombo      int     `json:"max_combo"`
 	TotalLength   int     `json:"total_length"`
 	OD            int     `json:"od"`
 	Ar            float32 `json:"ar"`
@@ -30,8 +32,20 @@ type Beatmap struct {
 	HitLength     int     `json:"hit_length"`
 }
 
+// Covers holds the image URLs the osu API attaches to a beatmapset.
+type Covers struct {
+	Cover string `json:"cover"`
+	Card  string `json:"card"`
+	List  string `json:"list"`
+	Slim  string `json:"slimcover"`
+}
+
 type BeatmapSet struct {
-	Title string `json:"title"`
+	ID      int64  `json:"id"`
+	Title   string `json:"title"`
+	Artist  string `json:"artist"`
+	Creator string `json:"creator"`
+	Covers  Covers `json:"covers"`
 }
 
 type Score struct {
@@ -42,12 +56,13 @@ type Score struct {
 	Mods       []string   `json:"mods"`
 	Score      int        `json:"score"`
 	MaxCombo   int        `json:"max_combo"`
+	Rank       string     `json:"rank"`
 	Passed     bool       `json:"passed"`
 	Statistics statistics `json:"statistics"`
 	PP         float64    `json:"pp"`
 	Mode       string     `json:"mode"`
 	Beatmap    Beatmap    `json:"beatmap"`
-	BeatmapSet BeatmapSet `json:"beatmapSet"`
+	BeatmapSet BeatmapSet `json:"beatmapset"`
 }
 
 func (s *statistics) String() string {
