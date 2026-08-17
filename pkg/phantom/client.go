@@ -10,8 +10,6 @@ import (
 	"github.com/minoxs/osu-phantom/pkg/osu/player"
 )
 
-// TODO CONFIGURE START DATE
-
 type (
 	// AuthProvider is required for requests which require OAuth authorization
 	AuthProvider interface {
