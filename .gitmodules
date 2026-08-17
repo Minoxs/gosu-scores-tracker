@@ -1,3 +1,3 @@
 [submodule "deps/crosu-pp"]
 	path = deps/crosu-pp
-	url = git@github.com:Minoxs/crosu-pp.git
+	url = https://github.com/Minoxs/crosu-pp.git
