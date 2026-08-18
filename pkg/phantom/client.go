@@ -82,7 +82,9 @@ func (c *Client) Restore(scores player.Scores) {
 	defer c.lock.Unlock()
 
 	for _, s := range scores {
-		c.ranking.AddScore(s)
+		if s.IsRanked() {
+			c.ranking.AddScore(s)
+		}
 		if s.CreatedAt.After(c.LastUpdate) {
 			c.LastUpdate = s.CreatedAt
 		}
@@ -180,6 +182,10 @@ func (c *Client) foldPage(page player.Scores, prev time.Time) (pageAllNew bool) 
 		if score.CreatedAt.Compare(prev) <= 0 {
 			pageAllNew = false
 			break
+		}
+
+		if !score.IsRanked() {
+			continue
 		}
 
 		osu.GetPP(&score)

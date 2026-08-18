@@ -14,22 +14,41 @@ type statistics struct {
 	CountMiss int `json:"count_miss"`
 }
 
+// BeatmapStatus is the osu! ranking status of a map, as the API reports it.
+type BeatmapStatus string
+
+const (
+	StatusGraveyard BeatmapStatus = "graveyard"
+	StatusWIP       BeatmapStatus = "wip"
+	StatusPending   BeatmapStatus = "pending"
+	StatusRanked    BeatmapStatus = "ranked"
+	StatusApproved  BeatmapStatus = "approved"
+	StatusQualified BeatmapStatus = "qualified"
+	StatusLoved     BeatmapStatus = "loved"
+)
+
+// AwardsPP reports whether scores on a map of this status earn pp. osu! awards it
+// only on ranked and approved maps; loved, qualified, and unsubmitted give none.
+func (s BeatmapStatus) AwardsPP() bool {
+	return s == StatusRanked || s == StatusApproved
+}
+
 type Beatmap struct {
-	ID            int64   `json:"id"`
-	Version       string  `json:"version"`
-	StarRating    float32 `json:"difficulty_rating"`
-	Status        string  `json:"status"`
-	Mode          string  `json:"mode"`
-	MaxCombo      int     `json:"max_combo"`
-	TotalLength   int     `json:"total_length"`
-	OD            int     `json:"od"`
-	Ar            float32 `json:"ar"`
-	CountCircles  int     `json:"count_circles"`
-	CountSliders  int     `json:"count_sliders"`
-	CountSpinners int     `json:"count_spinners"`
-	CS            float32 `json:"cs"`
-	HP            float32 `json:"drain"`
-	HitLength     int     `json:"hit_length"`
+	ID            int64         `json:"id"`
+	Version       string        `json:"version"`
+	StarRating    float32       `json:"difficulty_rating"`
+	Status        BeatmapStatus `json:"status"`
+	Mode          string        `json:"mode"`
+	MaxCombo      int           `json:"max_combo"`
+	TotalLength   int           `json:"total_length"`
+	OD            int           `json:"od"`
+	Ar            float32       `json:"ar"`
+	CountCircles  int           `json:"count_circles"`
+	CountSliders  int           `json:"count_sliders"`
+	CountSpinners int           `json:"count_spinners"`
+	CS            float32       `json:"cs"`
+	HP            float32       `json:"drain"`
+	HitLength     int           `json:"hit_length"`
 }
 
 // Covers holds the image URLs the osu API attaches to a beatmapset.
@@ -63,6 +82,12 @@ type Score struct {
 	Mode       string     `json:"mode"`
 	Beatmap    Beatmap    `json:"beatmap"`
 	BeatmapSet BeatmapSet `json:"beatmapset"`
+}
+
+// IsRanked reports whether the score's map awards pp, so unranked plays can be
+// kept out of a pp ranking.
+func (s Score) IsRanked() bool {
+	return s.Beatmap.Status.AwardsPP()
 }
 
 func (s *statistics) String() string {
