@@ -156,6 +156,14 @@ func getTestCases() []TestCaseInfo {
 			ExpectedCount: 2,
 		},
 		{
+			Name: "Same map replayed to the exact same pp",
+			Scores: Scores{
+				{ID: 1, Beatmap: Beatmap{ID: 1}, PP: 164.0}, {ID: 2, Beatmap: Beatmap{ID: 1}, PP: 164.0},
+				{ID: 3, Beatmap: Beatmap{ID: 3}, PP: 166.0},
+			},
+			ExpectedCount: 2,
+		},
+		{
 			Name: "Trying to add the exact same score",
 			Scores: Scores{
 				{ID: 1, Beatmap: Beatmap{ID: 1}, PP: 230.98}, {ID: 1, Beatmap: Beatmap{ID: 1}, PP: 230.98}, {ID: 1, Beatmap: Beatmap{ID: 1}, PP: 230.98},

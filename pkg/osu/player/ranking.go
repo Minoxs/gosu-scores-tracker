@@ -20,7 +20,7 @@ func (r *Ranking) findPosition(s *Score) (valid bool, pos int8) {
 	for pos = 0; pos < r.count; pos++ {
 		// Return early if the score was already added or
 		// A better score on the same map already exists
-		if s.ID == r.scores[pos].ID || s.Beatmap.ID == r.scores[pos].Beatmap.ID && s.PP < r.scores[pos].PP {
+		if s.ID == r.scores[pos].ID || s.Beatmap.ID == r.scores[pos].Beatmap.ID && s.PP <= r.scores[pos].PP {
 			return
 		}
 
