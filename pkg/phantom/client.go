@@ -85,8 +85,8 @@ func (c *Client) Restore(scores player.Scores) {
 		if s.IsRanked() {
 			c.ranking.AddScore(s)
 		}
-		if s.CreatedAt.After(c.LastUpdate) {
-			c.LastUpdate = s.CreatedAt
+		if s.EndedAt.After(c.LastUpdate) {
+			c.LastUpdate = s.EndedAt
 		}
 	}
 }
@@ -142,7 +142,7 @@ func (c *Client) Update() bool {
 			break
 		}
 		if offset == 0 {
-			newest = page[0].CreatedAt
+			newest = page[0].EndedAt
 		}
 		if !c.foldPage(page, prev) || len(page) < recentScorePageSize {
 			break
@@ -179,7 +179,7 @@ func (c *Client) foldPage(page player.Scores, prev time.Time) (pageAllNew bool) 
 
 	for i := range page {
 		score := page[i]
-		if score.CreatedAt.Compare(prev) <= 0 {
+		if score.EndedAt.Compare(prev) <= 0 {
 			pageAllNew = false
 			break
 		}

@@ -24,8 +24,8 @@ func GetPP(score *player.Score) {
 		return
 	}
 
-	var mode = crosu.GameModeFromString(score.Mode)
-	var mods = crosu.ModTypeFromStringArray(score.Mods)
+	var mode = crosu.GameModeFromString(score.Mode())
+	var mods = crosu.ModTypeFromStringArray(score.Mods.Acronyms())
 
 	if mode == crosu.OSU {
 		score.PP = getOsuPP(score, mods)
@@ -41,10 +41,10 @@ func GetPP(score *player.Score) {
 	score.PP = crosu.GetPPFromMap(
 		beatmap,
 		score.MaxCombo,
-		score.Statistics.Count300,
-		score.Statistics.Count100,
-		score.Statistics.Count050,
-		score.Statistics.CountMiss,
+		score.Statistics.Great,
+		score.Statistics.Ok,
+		score.Statistics.Meh,
+		score.Statistics.Miss,
 		mods,
 		mode,
 	)
@@ -75,9 +75,9 @@ func getOsuPP(score *player.Score, mods crosu.ModType) float64 {
 		attr,
 		mods,
 		score.MaxCombo,
-		score.Statistics.Count300,
-		score.Statistics.Count100,
-		score.Statistics.Count050,
-		score.Statistics.CountMiss,
+		score.Statistics.Great,
+		score.Statistics.Ok,
+		score.Statistics.Meh,
+		score.Statistics.Miss,
 	)
 }

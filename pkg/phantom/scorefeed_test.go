@@ -9,7 +9,7 @@ import (
 )
 
 func score(id, user int, at time.Time) player.Score {
-	return player.Score{ID: int64(id), UserID: user, CreatedAt: at}
+	return player.Score{ID: int64(id), UserID: user, EndedAt: at}
 }
 
 func recv(t *testing.T, ch <-chan player.Score) player.Score {

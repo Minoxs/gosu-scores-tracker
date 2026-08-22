@@ -27,7 +27,7 @@ func (f *fakeFetcher) fetch(userID int, since time.Time) ([]player.Score, time.T
 	}
 	f.nextID++
 	at := f.base.Add(time.Duration(f.nextID) * time.Second)
-	return []player.Score{{ID: f.nextID, UserID: userID, CreatedAt: at}}, at, nil
+	return []player.Score{{ID: f.nextID, UserID: userID, EndedAt: at}}, at, nil
 }
 
 func (f *fakeFetcher) seenSinces() []time.Time {

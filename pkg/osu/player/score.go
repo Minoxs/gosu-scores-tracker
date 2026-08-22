@@ -5,13 +5,34 @@ import (
 	"time"
 )
 
-type statistics struct {
-	Count050  int `json:"count_50"`
-	Count100  int `json:"count_100"`
-	Count300  int `json:"count_300"`
-	CountGeki int `json:"count_geki"`
-	CountKatu int `json:"count_katu"`
-	CountMiss int `json:"count_miss"`
+// Statistics is the lazer hit tally of a score. In osu!standard great/ok/meh are
+// the 300/100/50 judgements.
+type Statistics struct {
+	Great int `json:"great"`
+	Ok    int `json:"ok"`
+	Meh   int `json:"meh"`
+	Miss  int `json:"miss"`
+}
+
+func (s *Statistics) String() string {
+	return fmt.Sprintf("great=%d : ok=%d : meh=%d : miss=%d", s.Great, s.Ok, s.Meh, s.Miss)
+}
+
+// Mod is one mod on a score, an object in the osu! API v2 shape.
+type Mod struct {
+	Acronym string `json:"acronym"`
+}
+
+// Mods is a score's mod list in the osu! API v2 shape, an array of objects.
+type Mods []Mod
+
+// Acronyms returns the mod acronyms in order, e.g. ["HD","DT"].
+func (m Mods) Acronyms() []string {
+	out := make([]string, len(m))
+	for i := range m {
+		out[i] = m[i].Acronym
+	}
+	return out
 }
 
 // BeatmapStatus is the osu! ranking status of a map, as the API reports it.
@@ -67,31 +88,47 @@ type BeatmapSet struct {
 	Covers  Covers `json:"covers"`
 }
 
+// Score is an osu! API v2 "solo_score": one play as osu! stores it under the
+// lazer submission pipeline. Requests must send a modern x-api-version to receive
+// this shape.
 type Score struct {
 	ID         int64      `json:"id"`
 	UserID     int        `json:"user_id"`
-	CreatedAt  time.Time  `json:"created_at"`
+	EndedAt    time.Time  `json:"ended_at"`
 	Accuracy   float32    `json:"accuracy"`
-	Mods       []string   `json:"mods"`
-	Score      int        `json:"score"`
+	Mods       Mods       `json:"mods"`
+	TotalScore int        `json:"total_score"`
 	MaxCombo   int        `json:"max_combo"`
 	Rank       string     `json:"rank"`
 	Passed     bool       `json:"passed"`
-	Statistics statistics `json:"statistics"`
+	Statistics Statistics `json:"statistics"`
 	PP         float64    `json:"pp"`
-	Mode       string     `json:"mode"`
+	RulesetID  int        `json:"ruleset_id"`
 	Beatmap    Beatmap    `json:"beatmap"`
 	BeatmapSet BeatmapSet `json:"beatmapset"`
+}
+
+// Mode is the score's ruleset as a mode name (osu/taiko/fruits/mania). The
+// solo_score wire reports the mode as a numeric ruleset id.
+func (s Score) Mode() string {
+	switch s.RulesetID {
+	case 0:
+		return "osu"
+	case 1:
+		return "taiko"
+	case 2:
+		return "fruits"
+	case 3:
+		return "mania"
+	default:
+		return ""
+	}
 }
 
 // IsRanked reports whether the score's map awards pp, so unranked plays can be
 // kept out of a pp ranking.
 func (s Score) IsRanked() bool {
 	return s.Beatmap.Status.AwardsPP()
-}
-
-func (s *statistics) String() string {
-	return fmt.Sprintf("300=%d : 100=%d : 50=%d : Miss=%d", s.Count300, s.Count100, s.Count050, s.CountMiss)
 }
 
 type Scores []Score
@@ -116,9 +153,9 @@ func (s *Score) String() string {
 		s.Beatmap.ID,
 		s.BeatmapSet.Title,
 		s.Beatmap.Version,
-		s.Mode,
-		s.Mods,
-		s.Score,
+		s.Mode(),
+		s.Mods.Acronyms(),
+		s.TotalScore,
 		s.PP,
 		s.MaxCombo,
 		s.Accuracy,
