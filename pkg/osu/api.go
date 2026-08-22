@@ -158,6 +158,41 @@ func GetRecentScores(token *GuestToken, userid, limit, offset int) player.Scores
 	return scores
 }
 
+// GetScores fetches one page of osu!'s global recent-scores feed for a ruleset,
+// the passing scores every player has set, ascending by id. cursor is the
+// cursor_string from a previous page, or empty for the newest page; the returned
+// cursor_string fetches the scores newer than this page. Scores carry no embedded
+// beatmap, only a beatmap_id.
+func GetScores(token *GuestToken, ruleset, cursor string) (player.Scores, string, error) {
+	endpoint := "scores?ruleset=" + ruleset
+	if cursor != "" {
+		endpoint += "&cursor_string=" + cursor
+	}
+
+	req, _ := http.NewRequest(GET, APIv2URL(endpoint), nil)
+	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
+	req.Header.Add(apiVersionHeader, APIVersion)
+
+	res, err := apiClient.Do(req)
+	if err != nil {
+		return nil, "", err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != 200 {
+		return nil, "", errors.New("status_code=" + res.Status)
+	}
+
+	page := struct {
+		Scores       player.Scores `json:"scores"`
+		CursorString string        `json:"cursor_string"`
+	}{}
+	if err := json.NewDecoder(res.Body).Decode(&page); err != nil {
+		return nil, "", err
+	}
+	return page.Scores, page.CursorString, nil
+}
+
 func GetBeatmapScores(token *GuestToken, userID int, beatmapID int) player.Scores {
 	endpoint := fmt.Sprintf("beatmaps/%d/scores/users/%d/all", beatmapID, userID)
 
@@ -182,6 +217,35 @@ func GetBeatmapScores(token *GuestToken, userID int, beatmapID int) player.Score
 	}
 
 	return s.Scores
+}
+
+// GetBeatmap fetches a single beatmap's metadata by id. The osu! API nests the
+// owning beatmapset in the response, so both are returned: the map for its status
+// and difficulty, the set for its title, artist, and cover art. Unlike the beatmap
+// embedded in a score, this response carries a real max_combo.
+func GetBeatmap(token *GuestToken, id int64) (player.Beatmap, player.BeatmapSet, error) {
+	req, _ := http.NewRequest(GET, APIv2URL(fmt.Sprintf("beatmaps/%d", id)), nil)
+	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
+	req.Header.Add(apiVersionHeader, APIVersion)
+
+	res, err := apiClient.Do(req)
+	if err != nil {
+		return player.Beatmap{}, player.BeatmapSet{}, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != 200 {
+		return player.Beatmap{}, player.BeatmapSet{}, errors.New("status_code=" + res.Status)
+	}
+
+	body := struct {
+		player.Beatmap
+		BeatmapSet player.BeatmapSet `json:"beatmapset"`
+	}{}
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		return player.Beatmap{}, player.BeatmapSet{}, err
+	}
+	return body.Beatmap, body.BeatmapSet, nil
 }
 
 func DownloadBeatmap(id int64) (buf []byte, err error) {
