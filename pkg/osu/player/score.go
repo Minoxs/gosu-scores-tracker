@@ -5,36 +5,6 @@ import (
 	"time"
 )
 
-// Statistics is the lazer hit tally of a score. In osu!standard great/ok/meh are
-// the 300/100/50 judgements.
-type Statistics struct {
-	Great int `json:"great"`
-	Ok    int `json:"ok"`
-	Meh   int `json:"meh"`
-	Miss  int `json:"miss"`
-}
-
-func (s *Statistics) String() string {
-	return fmt.Sprintf("great=%d : ok=%d : meh=%d : miss=%d", s.Great, s.Ok, s.Meh, s.Miss)
-}
-
-// Mod is one mod on a score, an object in the osu! API v2 shape.
-type Mod struct {
-	Acronym string `json:"acronym"`
-}
-
-// Mods is a score's mod list in the osu! API v2 shape, an array of objects.
-type Mods []Mod
-
-// Acronyms returns the mod acronyms in order, e.g. ["HD","DT"].
-func (m Mods) Acronyms() []string {
-	out := make([]string, len(m))
-	for i := range m {
-		out[i] = m[i].Acronym
-	}
-	return out
-}
-
 // BeatmapStatus is the osu! ranking status of a map, as the API reports it.
 type BeatmapStatus string
 
