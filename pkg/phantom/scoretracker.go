@@ -66,7 +66,7 @@ func (t *FilterTracker) wants(s player.Score) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	since, ok := t.tracked[s.UserID]
-	return ok && s.CreatedAt.After(since)
+	return ok && s.EndedAt.After(since)
 }
 
 // Track starts forwarding userID's scores set after since. Calling it again with

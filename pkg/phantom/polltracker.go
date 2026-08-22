@@ -142,7 +142,7 @@ func (t *PollTracker) loop(ctx context.Context, userID int, since time.Time) {
 
 			fresh := false
 			for _, s := range scores {
-				if !s.CreatedAt.After(watermark) {
+				if !s.EndedAt.After(watermark) {
 					continue
 				}
 				if !t.emit(ctx, s) {
@@ -212,13 +212,13 @@ func osuScoreFetcher(provider AuthProvider) ScoreFetcher {
 				break
 			}
 			if offset == 0 {
-				newest = page[0].CreatedAt
+				newest = page[0].EndedAt
 			}
 
 			allNew := true
 			for i := range page {
 				s := page[i]
-				if !s.CreatedAt.After(since) {
+				if !s.EndedAt.After(since) {
 					allNew = false
 					break
 				}

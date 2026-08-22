@@ -17,6 +17,16 @@ type Credentials struct {
 	ClientSecret string
 }
 
+// APIVersion is the osu! API v2 version this package requests, sent as the
+// x-api-version header on every v2 call. osu-web gates response-shape changes on
+// it and compares it as an integer, so pinning the newest published version keeps
+// responses on the current solo_score shape. Update this when osu! ships a newer
+// version whose shape this package has been adjusted to decode.
+const APIVersion = "20241024"
+
+// apiVersionHeader is the header name osu-web reads the version from.
+const apiVersionHeader = "x-api-version"
+
 func buildOAUTHUrl(endpoint string) string {
 	return fmt.Sprintf("%s/%s", OAuthURL, endpoint)
 }
@@ -25,7 +35,7 @@ func APIv2URL(endpoint string) string {
 	return fmt.Sprintf("%s/%s", ApiV2, endpoint)
 }
 
-func createRequestBody(i interface{}) io.Reader {
+func createRequestBody(i any) io.Reader {
 	data, err := json.Marshal(i)
 	if err != nil {
 		panic(err)
@@ -60,6 +70,7 @@ func GetUserID(token *GuestToken, username string) (int, error) {
 
 	req, _ := http.NewRequest(GET, APIv2URL(endpoint), nil)
 	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
+	req.Header.Add(apiVersionHeader, APIVersion)
 
 	res, err := apiClient.Do(req)
 	if err != nil {
@@ -97,6 +108,7 @@ func decodeProfile(res *http.Response) (*player.Profile, error) {
 func GetUser(token *GuestToken, id int64) (*player.Profile, error) {
 	req, _ := http.NewRequest(GET, APIv2URL(fmt.Sprintf("users/%d/osu", id)), nil)
 	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
+	req.Header.Add(apiVersionHeader, APIVersion)
 
 	res, err := apiClient.Do(req)
 	if err != nil {
@@ -110,6 +122,7 @@ func GetUser(token *GuestToken, id int64) (*player.Profile, error) {
 func GetUserByName(token *GuestToken, username string) (*player.Profile, error) {
 	req, _ := http.NewRequest(GET, APIv2URL(fmt.Sprintf("users/%s/osu?key=username", username)), nil)
 	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
+	req.Header.Add(apiVersionHeader, APIVersion)
 
 	res, err := apiClient.Do(req)
 	if err != nil {
@@ -126,6 +139,7 @@ func GetRecentScores(token *GuestToken, userid, limit, offset int) player.Scores
 
 	req, _ := http.NewRequest(GET, APIv2URL(endpoint), nil)
 	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
+	req.Header.Add(apiVersionHeader, APIVersion)
 
 	res, err := apiClient.Do(req)
 	if err != nil {
@@ -149,6 +163,7 @@ func GetBeatmapScores(token *GuestToken, userID int, beatmapID int) player.Score
 
 	req, _ := http.NewRequest(GET, APIv2URL(endpoint), nil)
 	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
+	req.Header.Add(apiVersionHeader, APIVersion)
 
 	res, err := apiClient.Do(req)
 	if err != nil {
@@ -157,7 +172,9 @@ func GetBeatmapScores(token *GuestToken, userID int, beatmapID int) player.Score
 	}
 	defer res.Body.Close()
 
-	s := struct{ Scores player.Scores }{make(player.Scores, 0)}
+	s := struct {
+		Scores player.Scores `json:"scores"`
+	}{}
 	err = json.NewDecoder(res.Body).Decode(&s)
 	if err != nil {
 		slog.Error("Error while decoding response", "Error", err)

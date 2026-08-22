@@ -7,10 +7,8 @@ import (
 )
 
 // ScoreProvider is a source of score events. It surfaces scores without regard
-// to who is tracked: kay's oSC feed surfaces every global score, an osu-API
-// provider surfaces a user's scores when polled. Each Subscribe call returns an
-// independent stream, so several consumers can read the same feed at once, for
-// example one folding scores into rankings while another auto-tracks new users.
+// to who is tracked. Each Subscribe call returns an independent stream, so
+// several consumers can read the same feed at once.
 type ScoreProvider interface {
 	Subscribe() <-chan player.Score
 }
