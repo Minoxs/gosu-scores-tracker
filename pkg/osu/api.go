@@ -35,7 +35,7 @@ func APIv2URL(endpoint string) string {
 	return fmt.Sprintf("%s/%s", ApiV2, endpoint)
 }
 
-func createRequestBody(i interface{}) io.Reader {
+func createRequestBody(i any) io.Reader {
 	data, err := json.Marshal(i)
 	if err != nil {
 		panic(err)

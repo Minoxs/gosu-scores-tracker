@@ -201,7 +201,3 @@ func (c *Client) foldPage(page player.Scores, prev time.Time) (pageAllNew bool) 
 	}
 	return pageAllNew
 }
-
-func (c *Client) getBeatmapScores(beatmapID int) player.Scores {
-	return osu.GetBeatmapScores(c.Provider.GetToken(), c.UserID, beatmapID)
-}

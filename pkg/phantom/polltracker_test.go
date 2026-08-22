@@ -1,6 +1,7 @@
 package phantom
 
 import (
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -33,7 +34,7 @@ func (f *fakeFetcher) fetch(userID int, since time.Time) ([]player.Score, time.T
 func (f *fakeFetcher) seenSinces() []time.Time {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return append([]time.Time(nil), f.sinces...)
+	return slices.Clone(f.sinces)
 }
 
 const fastPoll = time.Millisecond
