@@ -92,16 +92,32 @@ func TestScore_AwardsPP_LeanRankedFlag(t *testing.T) {
 
 // An unranked mod disqualifies pp even on an otherwise pp-awarding ranked map.
 func TestScore_AwardsPP_UnrankedMods(t *testing.T) {
-	for _, acronym := range []string{"RX", "AP", "DA", "SO"} {
+	for _, acronym := range []string{"RX", "AP", "DA", "DC", "AS"} {
 		score := Score{Ranked: true, Beatmap: Beatmap{Status: StatusRanked}, Mods: Mods{{Acronym: acronym}}}
 		if score.AwardsPP() {
 			t.Errorf("AwardsPP() = true with unranked mod %q, want false", acronym)
 		}
 	}
 
-	ranked := Score{Ranked: true, Beatmap: Beatmap{Status: StatusRanked}, Mods: Mods{{Acronym: "HD"}, {Acronym: "DT"}}}
+	ranked := Score{Ranked: true, Beatmap: Beatmap{Status: StatusRanked}, Mods: Mods{{Acronym: "HD"}, {Acronym: "SO"}}}
 	if !ranked.AwardsPP() {
-		t.Error("AwardsPP() = false with ranked mods HD,DT, want true")
+		t.Error("AwardsPP() = false with ranked mods HD,SO, want true")
+	}
+}
+
+// A ranked-acronym mod earns pp at default settings but not once customized, since
+// osu! unranks a tweaked mod while leaving its acronym unchanged.
+func TestScore_AwardsPP_CustomizedMod(t *testing.T) {
+	stock := Score{Ranked: true, Beatmap: Beatmap{Status: StatusRanked}, Mods: Mods{{Acronym: "DT"}}}
+	if !stock.AwardsPP() {
+		t.Error("AwardsPP() = false for stock Double Time, want true")
+	}
+
+	tuned := Score{Ranked: true, Beatmap: Beatmap{Status: StatusRanked}, Mods: Mods{
+		{Acronym: "DT", Settings: map[string]any{"speed_change": 1.4}},
+	}}
+	if tuned.AwardsPP() {
+		t.Error("AwardsPP() = true for Double Time at a non-default speed, want false")
 	}
 }
 
