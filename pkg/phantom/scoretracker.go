@@ -10,9 +10,7 @@ import (
 
 // ScoreTracker narrows a feed to a chosen set of users, each from a start time.
 // Track and Untrack adjust that set at any time; Scores yields the scores of
-// tracked users set after their start. That a tracker filters a ScoreProvider is
-// one implementation; a poll-driven tracker that only ever fetches tracked users
-// is another. Consumers wire the output into rankings without knowing which.
+// tracked users set after their start.
 type ScoreTracker interface {
 	Track(userID int, since time.Time)
 	Untrack(userID int)

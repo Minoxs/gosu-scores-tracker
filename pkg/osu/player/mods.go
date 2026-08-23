@@ -1,8 +1,10 @@
 package player
 
-// Mod is one mod on a score, an object in the osu! API v2 shape.
+// Mod is one mod on a score in the osu! API v2 shape. The API emits Settings only
+// when the mod is customized, which itself unranks an otherwise ranked mod.
 type Mod struct {
-	Acronym string `json:"acronym"`
+	Acronym  string         `json:"acronym"`
+	Settings map[string]any `json:"settings,omitempty"`
 }
 
 // Mods is a score's mod list in the osu! API v2 shape, an array of objects.
@@ -17,37 +19,38 @@ func (m Mods) Acronyms() []string {
 	return out
 }
 
-// unrankedMods are the osu! mods that make a score earn no pp, so a play using any
-// of them is disqualified even on a ranked map. osu! reports pp of 0 for these, so
-// without this gate a crosu fallback would invent a nonzero pp for them. This is a
-// denylist: extend it when osu! ships another unranked mod.
-var unrankedMods = map[string]bool{
-	"RX": true, // Relax
-	"AP": true, // Autopilot
-	"SO": true, // Spun Out
-	"TP": true, // Target Practice
-	"DA": true, // Difficulty Adjust
-	"RD": true, // Random
-	"MG": true, // Magnetised
-	"RP": true, // Repel
-	"AS": true, // Adaptive Speed
-	"FR": true, // Freeze Frame
-	"BU": true, // Bubbles
-	"SY": true, // Synesthesia
-	"DP": true, // Depth
-	"TR": true, // Transform
-	"WG": true, // Wiggle
-	"BR": true, // Barrel Roll
-	"WU": true, // Wind Up
-	"WD": true, // Wind Down
+// rankedAcronym reports whether an osu!standard mod earns pp at its default settings.
+func rankedAcronym(acronym string) bool {
+	switch acronym {
+	case "EZ", // Easy
+		"NF", // No Fail
+		"HT", // Half Time
+		"HR", // Hard Rock
+		"SD", // Sudden Death
+		"PF", // Perfect
+		"DT", // Double Time
+		"NC", // Nightcore
+		"HD", // Hidden
+		"FL", // Flashlight
+		"SO", // Spun Out
+		"CL", // Classic
+		"TD": // Touch Device
+		return true
+	default:
+		return false
+	}
 }
 
-// HasUnranked reports whether any mod in the list disqualifies the score from pp.
-func (m Mods) HasUnranked() bool {
+// IsRanked reports whether every mod keeps the score pp-eligible: a ranked acronym
+// carrying no custom settings, since customizing a mod unranks the score.
+func (m Mods) IsRanked() bool {
 	for i := range m {
-		if unrankedMods[m[i].Acronym] {
-			return true
+		if !rankedAcronym(m[i].Acronym) {
+			return false
+		}
+		if len(m[i].Settings) > 0 {
+			return false
 		}
 	}
-	return false
+	return true
 }

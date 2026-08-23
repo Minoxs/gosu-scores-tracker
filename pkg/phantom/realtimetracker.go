@@ -106,11 +106,10 @@ func (t *RealtimeTracker) complete(s *player.Score) bool {
 	return true
 }
 
-// Resolve qualifies a score the tracker did not itself emit, such as an onboarding
-// candidate read straight off the raw feed, and reports whether it is worth pp. It
-// trusts a positive feed pp; when the feed reported none it enriches the score with
-// its beatmap and computes pp, so the verdict reflects the calculation rather than
-// the feed's omission. It applies no tracked-user or since gate.
+// Resolve reports whether a score is worth pp, qualifying one the tracker did not
+// itself emit such as an onboarding candidate off the raw feed. A positive feed pp
+// is trusted; otherwise it enriches the score and computes pp, so the verdict
+// reflects the calculation rather than what the feed happened to carry.
 func (t *RealtimeTracker) Resolve(s *player.Score) bool {
 	if !s.AwardsPP() {
 		return false

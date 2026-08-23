@@ -97,13 +97,11 @@ func (s Score) Mode() string {
 	}
 }
 
-// AwardsPP reports whether the score earns pp: no unranked mod is in play, and
-// either the feed marked it ranked or its beatmap's status awards pp. The Ranked
-// term lets a lean feed score, one with no embedded beatmap yet, answer correctly
-// before enrichment; the mod gate stops an unranked-mod play on a ranked map from
-// falling through to a crosu-invented pp.
+// AwardsPP reports whether the score earns pp: its mods keep it ranked, and either
+// the feed marked it ranked or the beatmap status awards pp. The Ranked term lets a
+// lean feed score answer before its beatmap is fetched.
 func (s Score) AwardsPP() bool {
-	if s.Mods.HasUnranked() {
+	if !s.Mods.IsRanked() {
 		return false
 	}
 	return s.Ranked || s.Beatmap.Status.AwardsPP()
