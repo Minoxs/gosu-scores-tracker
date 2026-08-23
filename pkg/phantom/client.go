@@ -1,6 +1,7 @@
 package phantom
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"sync"
@@ -188,7 +189,7 @@ func (c *Client) foldPage(page player.Scores, prev time.Time) (pageAllNew bool) 
 			continue
 		}
 
-		osu.GetPP(&score)
+		osu.GetPP(context.Background(), &score)
 		c.Logger.Debug("Possible new score", "ID", score.ID, "BeatmapID", score.Beatmap.ID, "Title", score.BeatmapSet.Title, "PP", score.PP)
 		if rank, added := c.ranking.AddScore(score); added {
 			c.Logger.Info("New score", "ID", score.ID, "BeatmapID", score.Beatmap.ID, "Title", score.BeatmapSet.Title, "PP", score.PP)

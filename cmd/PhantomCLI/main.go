@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 	"time"
@@ -37,7 +38,7 @@ func main() {
 		client *phantom.Client
 	)
 
-	token, err = osu.GetGuestToken(credentials)
+	token, err = osu.GetGuestToken(context.Background(), credentials)
 	FatalError(err)
 
 	var provider = &phantom.DefaultProvider{Token: token}
