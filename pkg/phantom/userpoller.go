@@ -13,7 +13,7 @@ import (
 
 // ScoreFetcher returns a user's ranked scores set after since, each with pp
 // resolved, plus the newest score's time seen so the caller can advance its
-// watermark. It is the one osu!-facing dependency of PollTracker, injected so the
+// watermark. It is the one osu!-facing dependency of UserPoller, injected so the
 // polling loop can be tested without the network.
 type ScoreFetcher func(userID int, since time.Time) (scores []player.Score, newest time.Time, err error)
 
@@ -26,10 +26,10 @@ type PollConfig struct {
 	JitterFrac   float64
 }
 
-// PollTracker is a ScoreTracker that surfaces tracked users' new ranked scores by
+// UserPoller is a ScoreTracker that surfaces tracked users' new ranked scores by
 // polling the osu! API. Each tracked user runs its own poll loop, backing off
 // while idle. It keeps no ranking: accumulation is the consumer's job.
-type PollTracker struct {
+type UserPoller struct {
 	fetch ScoreFetcher
 	cfg   PollConfig
 	out   chan player.Score
@@ -49,10 +49,8 @@ type PollTracker struct {
 	closed  bool
 }
 
-var _ ScoreTracker = (*PollTracker)(nil)
-
-// NewPollTracker builds a tracker driven by the given fetcher.
-func NewPollTracker(fetch ScoreFetcher, cfg PollConfig) *PollTracker {
+// NewUserPoller builds a tracker driven by the given fetcher.
+func NewUserPoller(fetch ScoreFetcher, cfg PollConfig) *UserPoller {
 	if cfg.BaseInterval <= 0 {
 		cfg.BaseInterval = time.Minute
 	}
@@ -60,7 +58,7 @@ func NewPollTracker(fetch ScoreFetcher, cfg PollConfig) *PollTracker {
 		cfg.MaxInterval = 30 * time.Minute
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	return &PollTracker{
+	return &UserPoller{
 		fetch:   fetch,
 		cfg:     cfg,
 		out:     make(chan player.Score, DefaultSubBuffer),
@@ -70,14 +68,14 @@ func NewPollTracker(fetch ScoreFetcher, cfg PollConfig) *PollTracker {
 	}
 }
 
-// NewOsuPollTracker builds a PollTracker that fetches through osu-phantom.
-func NewOsuPollTracker(provider AuthProvider, cfg PollConfig) *PollTracker {
-	return NewPollTracker(osuScoreFetcher(provider), cfg)
+// NewOsuUserPoller builds a UserPoller that fetches through osu-phantom.
+func NewOsuUserPoller(provider AuthProvider, cfg PollConfig) *UserPoller {
+	return NewUserPoller(osuScoreFetcher(provider), cfg)
 }
 
 // Track starts polling userID, surfacing scores set after since. It is idempotent
 // and a no-op once the tracker is closed.
-func (t *PollTracker) Track(userID int, since time.Time) {
+func (t *UserPoller) Track(userID int, since time.Time) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if t.closed {
@@ -93,7 +91,7 @@ func (t *PollTracker) Track(userID int, since time.Time) {
 }
 
 // Untrack stops polling userID.
-func (t *PollTracker) Untrack(userID int) {
+func (t *UserPoller) Untrack(userID int) {
 	t.mu.Lock()
 	cancel, ok := t.tracked[userID]
 	delete(t.tracked, userID)
@@ -104,11 +102,11 @@ func (t *PollTracker) Untrack(userID int) {
 }
 
 // Scores is the stream of tracked users' new scores.
-func (t *PollTracker) Scores() <-chan player.Score { return t.out }
+func (t *UserPoller) Scores() <-chan player.Score { return t.out }
 
 // Close stops every poll loop and closes the Scores channel once they have all
 // exited. The tracker cannot be reused afterwards.
-func (t *PollTracker) Close() {
+func (t *UserPoller) Close() {
 	t.mu.Lock()
 	if t.closed {
 		t.mu.Unlock()
@@ -122,7 +120,7 @@ func (t *PollTracker) Close() {
 	close(t.out)
 }
 
-func (t *PollTracker) loop(ctx context.Context, userID int, since time.Time) {
+func (t *UserPoller) loop(ctx context.Context, userID int, since time.Time) {
 	defer t.wg.Done()
 
 	watermark := since
@@ -172,7 +170,7 @@ func (t *PollTracker) loop(ctx context.Context, userID int, since time.Time) {
 
 // emit forwards a score, blocking until the consumer takes it so no score is
 // dropped. It bails out if the loop is cancelled while waiting.
-func (t *PollTracker) emit(ctx context.Context, s player.Score) bool {
+func (t *UserPoller) emit(ctx context.Context, s player.Score) bool {
 	select {
 	case t.out <- s:
 		return true

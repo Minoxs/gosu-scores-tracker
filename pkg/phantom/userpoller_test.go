@@ -64,9 +64,9 @@ func assertQuiet(t *testing.T, ch <-chan player.Score) {
 	}
 }
 
-func TestPollTracker_EmitsScores(t *testing.T) {
+func TestUserPoller_EmitsScores(t *testing.T) {
 	f := &fakeFetcher{base: time.Now(), emit: true}
-	tr := NewPollTracker(f.fetch, fastConfig())
+	tr := NewUserPoller(f.fetch, fastConfig())
 	defer tr.Close()
 
 	tr.Track(7, time.Now().Add(-time.Hour))
@@ -76,9 +76,9 @@ func TestPollTracker_EmitsScores(t *testing.T) {
 	}
 }
 
-func TestPollTracker_AdvancesWatermark(t *testing.T) {
+func TestUserPoller_AdvancesWatermark(t *testing.T) {
 	f := &fakeFetcher{base: time.Now(), emit: true}
-	tr := NewPollTracker(f.fetch, fastConfig())
+	tr := NewUserPoller(f.fetch, fastConfig())
 
 	tr.Track(7, time.Now().Add(-time.Hour))
 	recv(t, tr.Scores())
@@ -94,9 +94,9 @@ func TestPollTracker_AdvancesWatermark(t *testing.T) {
 	}
 }
 
-func TestPollTracker_Untrack(t *testing.T) {
+func TestUserPoller_Untrack(t *testing.T) {
 	f := &fakeFetcher{base: time.Now(), emit: true}
-	tr := NewPollTracker(f.fetch, fastConfig())
+	tr := NewUserPoller(f.fetch, fastConfig())
 	defer tr.Close()
 
 	tr.Track(7, time.Now().Add(-time.Hour))
@@ -106,9 +106,9 @@ func TestPollTracker_Untrack(t *testing.T) {
 	assertQuiet(t, tr.Scores())
 }
 
-func TestPollTracker_TrackIsIdempotent(t *testing.T) {
+func TestUserPoller_TrackIsIdempotent(t *testing.T) {
 	f := &fakeFetcher{base: time.Now(), emit: true}
-	tr := NewPollTracker(f.fetch, fastConfig())
+	tr := NewUserPoller(f.fetch, fastConfig())
 	defer tr.Close()
 
 	since := time.Now().Add(-time.Hour)
@@ -120,14 +120,14 @@ func TestPollTracker_TrackIsIdempotent(t *testing.T) {
 	assertQuiet(t, tr.Scores())
 }
 
-func TestPollTracker_ReportsChecks(t *testing.T) {
+func TestUserPoller_ReportsChecks(t *testing.T) {
 	type check struct {
 		user    int
 		checked time.Time
 		next    time.Time
 	}
 	f := &fakeFetcher{base: time.Now()} // empty polls still report a check
-	tr := NewPollTracker(f.fetch, fastConfig())
+	tr := NewUserPoller(f.fetch, fastConfig())
 	defer tr.Close()
 
 	checks := make(chan check, 8)
@@ -153,9 +153,9 @@ func TestPollTracker_ReportsChecks(t *testing.T) {
 	}
 }
 
-func TestPollTracker_CloseClosesScores(t *testing.T) {
+func TestUserPoller_CloseClosesScores(t *testing.T) {
 	f := &fakeFetcher{base: time.Now()}
-	tr := NewPollTracker(f.fetch, fastConfig())
+	tr := NewUserPoller(f.fetch, fastConfig())
 
 	tr.Track(7, time.Now().Add(-time.Hour))
 	tr.Close()

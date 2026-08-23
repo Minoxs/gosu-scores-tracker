@@ -73,7 +73,9 @@ type Score struct {
 	Passed     bool       `json:"passed"`
 	Statistics Statistics `json:"statistics"`
 	PP         float64    `json:"pp"`
+	Ranked     bool       `json:"ranked"`
 	RulesetID  int        `json:"ruleset_id"`
+	BeatmapID  int64      `json:"beatmap_id"`
 	Beatmap    Beatmap    `json:"beatmap"`
 	BeatmapSet BeatmapSet `json:"beatmapset"`
 }
