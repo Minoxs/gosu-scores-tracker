@@ -106,6 +106,21 @@ func (t *RealtimeTracker) complete(s *player.Score) bool {
 	return true
 }
 
+// Resolve qualifies a score the tracker did not itself emit, such as an onboarding
+// candidate read straight off the raw feed, and reports whether it is worth pp. It
+// trusts a positive feed pp; when the feed reported none it enriches the score with
+// its beatmap and computes pp, so the verdict reflects the calculation rather than
+// the feed's omission. It applies no tracked-user or since gate.
+func (t *RealtimeTracker) Resolve(s *player.Score) bool {
+	if !s.AwardsPP() {
+		return false
+	}
+	if s.PP <= 0 && !t.complete(s) {
+		return false
+	}
+	return s.PP > 0
+}
+
 // Track starts forwarding userID's scores set after since. Calling it again with a
 // new start moves the boundary.
 func (t *RealtimeTracker) Track(userID int, since time.Time) {
