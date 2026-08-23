@@ -3,6 +3,7 @@ package phantom
 import (
 	"context"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/minoxs/osu-phantom/pkg/osu"
@@ -48,6 +49,9 @@ type RealtimePoller struct {
 	fetch    ScoresFetcher
 	interval time.Duration
 	logger   *slog.Logger
+
+	mu     sync.Mutex
+	cursor string
 }
 
 // NewRealtimePoller builds a poller driven by the given fetcher.
@@ -76,14 +80,21 @@ func NewOsuRealtimePoller(provider AuthProvider, cfg RealtimeConfig) *RealtimePo
 	return NewRealtimePoller(fetch, cfg.Interval)
 }
 
-// Run seeds the cursor at the newest score, then streams forward, emitting every
-// score set after it started, until ctx is cancelled. It blocks, so callers run it
-// in a goroutine. The newest page at start is a historical snapshot, not new
-// events, so it is used only to seed the cursor and is not emitted.
+// Run streams the feed forward, emitting every score set after it started, until
+// ctx is cancelled. It blocks, so callers run it in a goroutine. With no resume
+// cursor it first seeds at the newest score, whose page is a historical snapshot
+// and so is used only to seed and is not emitted; resumed from a persisted cursor
+// it instead streams the scores set since that cursor, so a restart does not skip
+// scores set during downtime.
 func (p *RealtimePoller) Run(ctx context.Context) {
-	cursor, ok := p.seed(ctx)
-	if !ok {
-		return
+	cursor := p.Cursor()
+	if cursor == "" {
+		seeded, ok := p.seed(ctx)
+		if !ok {
+			return
+		}
+		cursor = seeded
+		p.setCursor(cursor)
 	}
 
 	timer := time.NewTimer(0)
@@ -105,6 +116,7 @@ func (p *RealtimePoller) Run(ctx context.Context) {
 			}
 			if next != "" {
 				cursor = next
+				p.setCursor(next)
 			}
 			if len(scores) >= drainThreshold {
 				timer.Reset(0)
@@ -113,6 +125,26 @@ func (p *RealtimePoller) Run(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// Cursor returns the feed position the poller has reached, empty before it seeds.
+// Persist it and pass it back through Resume to continue the tail across a restart,
+// so scores set during downtime are streamed rather than skipped.
+func (p *RealtimePoller) Cursor() string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.cursor
+}
+
+// Resume sets the position the next Run starts from, so the tail streams the scores
+// set since it instead of seeding at the newest and skipping the gap. Call before
+// Run; an empty cursor leaves Run to seed as usual.
+func (p *RealtimePoller) Resume(cursor string) { p.setCursor(cursor) }
+
+func (p *RealtimePoller) setCursor(cursor string) {
+	p.mu.Lock()
+	p.cursor = cursor
+	p.mu.Unlock()
 }
 
 // seed fetches the newest page to adopt its cursor without emitting it, retrying
