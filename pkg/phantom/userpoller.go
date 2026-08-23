@@ -220,7 +220,7 @@ func osuScoreFetcher(provider AuthProvider) ScoreFetcher {
 					allNew = false
 					break
 				}
-				if !s.IsRanked() {
+				if !s.AwardsPP() {
 					continue
 				}
 				osu.GetPP(&s)

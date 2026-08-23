@@ -97,10 +97,11 @@ func (s Score) Mode() string {
 	}
 }
 
-// IsRanked reports whether the score's map awards pp, so unranked plays can be
-// kept out of a pp ranking.
-func (s Score) IsRanked() bool {
-	return s.Beatmap.Status.AwardsPP()
+// AwardsPP reports whether the score earns pp: the feed marked it ranked, or its
+// beatmap's status awards pp. The Ranked term lets a lean feed score, one with no
+// embedded beatmap yet, answer correctly before enrichment.
+func (s Score) AwardsPP() bool {
+	return s.Ranked || s.Beatmap.Status.AwardsPP()
 }
 
 type Scores []Score

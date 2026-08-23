@@ -53,15 +53,15 @@ func TestScoreDecode(t *testing.T) {
 	if s.PP != 24.5157 || !s.Passed {
 		t.Errorf("pp/passed = %v/%v", s.PP, s.Passed)
 	}
-	if s.Beatmap.Status != StatusRanked || !s.IsRanked() {
-		t.Errorf("Beatmap.Status = %q, IsRanked = %v", s.Beatmap.Status, s.IsRanked())
+	if s.Beatmap.Status != StatusRanked || !s.AwardsPP() {
+		t.Errorf("Beatmap.Status = %q, AwardsPP = %v", s.Beatmap.Status, s.AwardsPP())
 	}
 	if s.Beatmap.ID != 2335023 || s.BeatmapSet.Title != "Song" || s.BeatmapSet.Creator != "Mapper" {
 		t.Errorf("beatmap/set = %d/%q/%q", s.Beatmap.ID, s.BeatmapSet.Title, s.BeatmapSet.Creator)
 	}
 }
 
-func TestScore_IsRanked(t *testing.T) {
+func TestScore_AwardsPP(t *testing.T) {
 	cases := map[BeatmapStatus]bool{
 		"ranked":    true,
 		"approved":  true,
@@ -75,9 +75,18 @@ func TestScore_IsRanked(t *testing.T) {
 
 	for status, want := range cases {
 		score := Score{Beatmap: Beatmap{Status: status}}
-		if got := score.IsRanked(); got != want {
-			t.Errorf("status %q: IsRanked() = %v, want %v", status, got, want)
+		if got := score.AwardsPP(); got != want {
+			t.Errorf("status %q: AwardsPP() = %v, want %v", status, got, want)
 		}
+	}
+}
+
+// A lean feed score carries the ranked flag but no beatmap, so AwardsPP must honor
+// the flag before enrichment fills the status.
+func TestScore_AwardsPP_LeanRankedFlag(t *testing.T) {
+	lean := Score{Ranked: true}
+	if !lean.AwardsPP() {
+		t.Error("AwardsPP() = false for a ranked-flagged score with no beatmap, want true")
 	}
 }
 

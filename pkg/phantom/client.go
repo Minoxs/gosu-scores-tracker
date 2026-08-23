@@ -82,7 +82,7 @@ func (c *Client) Restore(scores player.Scores) {
 	defer c.lock.Unlock()
 
 	for _, s := range scores {
-		if s.IsRanked() {
+		if s.AwardsPP() {
 			c.ranking.AddScore(s)
 		}
 		if s.EndedAt.After(c.LastUpdate) {
@@ -184,7 +184,7 @@ func (c *Client) foldPage(page player.Scores, prev time.Time) (pageAllNew bool) 
 			break
 		}
 
-		if !score.IsRanked() {
+		if !score.AwardsPP() {
 			continue
 		}
 
