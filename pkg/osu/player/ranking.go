@@ -3,28 +3,34 @@ package player
 import (
 	"fmt"
 	"math"
+	"slices"
 )
 
+// RankSize caps how many scores a ranking keeps: osu! weights only the top 100.
 const RankSize = 100
 
+// Ranking holds a player's best scores for a window, at most one per beatmap,
+// ordered by pp descending and capped at RankSize. It is backed by a slice grown
+// on demand, so a window holding a handful of scores costs a handful of scores,
+// not a fixed hundred-slot array.
 type Ranking struct {
-	count  int8
-	scores [RankSize]Score
+	scores []Score
 }
 
 func (r *Ranking) String() string {
-	return fmt.Sprintf("Count=%d : TotalPP=%.0f : Scores=%v", r.count, r.GetTotalPP(), Scores(r.scores[:r.count]))
+	return fmt.Sprintf("Count=%d : TotalPP=%.0f : Scores=%v", len(r.scores), r.GetTotalPP(), Scores(r.scores))
 }
 
-func (r *Ranking) findPosition(s *Score) (valid bool, pos int8) {
-	for pos = 0; pos < r.count; pos++ {
-		// Return early if the score was already added or
-		// A better score on the same map already exists
-		if s.ID == r.scores[pos].ID || s.Beatmap.ID == r.scores[pos].Beatmap.ID && s.PP <= r.scores[pos].PP {
+// findPosition locates where s belongs. valid is false when s should not be added:
+// it is already present, or a better score on the same map already ranks. pos is
+// the insertion index, and valid also requires it to fall within RankSize.
+func (r *Ranking) findPosition(s *Score) (valid bool, pos int) {
+	for pos = 0; pos < len(r.scores); pos++ {
+		// Already added, or a better score on the same map already exists.
+		if s.ID == r.scores[pos].ID || (s.Beatmap.ID == r.scores[pos].Beatmap.ID && s.PP <= r.scores[pos].PP) {
 			return
 		}
-
-		// Better score !
+		// Better score.
 		if s.PP > r.scores[pos].PP {
 			break
 		}
@@ -33,55 +39,50 @@ func (r *Ranking) findPosition(s *Score) (valid bool, pos int8) {
 	return
 }
 
-func (r *Ranking) insertScore(pos int8, s *Score) {
-	// Find index of last score to move
-	var j = pos
-	for ; j < r.count; j++ {
-		if s.Beatmap.ID == r.scores[j].Beatmap.ID {
-			// Score will be removed
-			r.count--
+// insertScore places s at pos, first dropping any lower-ranked score on the same
+// map (findPosition guarantees such a duplicate can only sit at or after pos), then
+// truncating back to RankSize when the insert overflows it.
+func (r *Ranking) insertScore(pos int, s *Score) {
+	for j := pos; j < len(r.scores); j++ {
+		if r.scores[j].Beatmap.ID == s.Beatmap.ID {
+			r.scores = slices.Delete(r.scores, j, j+1)
 			break
 		}
 	}
 
-	// Increase count if ranks aren't full
-	if r.count < RankSize {
-		r.count++
-	}
-
-	// Make sure range is valid
-	if j >= RankSize {
-		j = RankSize - 1
-	}
-
-	// Move scores
-	copy(r.scores[pos+1:j+1], r.scores[pos:j])
-
-	// Add score
+	r.scores = append(r.scores, Score{})
+	copy(r.scores[pos+1:], r.scores[pos:])
 	r.scores[pos] = *s
+
+	if len(r.scores) > RankSize {
+		r.scores = r.scores[:RankSize]
+	}
 }
 
 func (r *Ranking) AddScore(s Score) (rank int, added bool) {
-	var valid, idx = r.findPosition(&s)
+	valid, pos := r.findPosition(&s)
 	if valid {
-		r.insertScore(idx, &s)
+		r.insertScore(pos, &s)
 	}
-	return int(idx + 1), valid
+	return pos + 1, valid
 }
 
 func (r *Ranking) GetTotalPP() (res float64) {
-	res = 0
-	for i := int8(0); i < r.count; i++ {
-		res += r.scores[i].PP * math.Pow(0.95, (float64)(i))
+	for i := range r.scores {
+		res += r.scores[i].PP * math.Pow(0.95, float64(i))
 	}
-	res = math.Floor(res)
-	return
+	return math.Floor(res)
 }
 
+// Scores returns an independent copy of the ranked scores, so a caller may read or
+// mutate the result without touching the ranking's backing store. The value
+// receiver copies only the slice header, so it stays cheap.
 func (r Ranking) Scores() Scores {
-	return r.scores[:r.count]
+	out := make(Scores, len(r.scores))
+	copy(out, r.scores)
+	return out
 }
 
 func (r Ranking) Count() int {
-	return int(r.count)
+	return len(r.scores)
 }
