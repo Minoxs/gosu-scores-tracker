@@ -1,7 +1,6 @@
 package phantom
 
 import (
-	"context"
 	"errors"
 	"log/slog"
 	"sync"
@@ -34,6 +33,7 @@ type (
 		ranking     player.Ranking
 		LastUpdate  time.Time
 
+		osu  *osu.Client
 		lock sync.Mutex
 	}
 )
@@ -44,8 +44,8 @@ var ErrUserNotFound = errors.New("user not found")
 // Returns ErrUserNotFound if user is not found, or some HTTP error if failed to fetch user.
 // Call Client.KeepUpdated to keep rankings constantly updated, or manually update with Client.Update.
 func Login(provider AuthProvider, username string, start time.Time) (client *Client, err error) {
-	client = &Client{Username: username, Provider: provider}
-	client.UserID, err = osu.GetUserID(provider.GetToken(), client.Username)
+	client = &Client{Username: username, Provider: provider, osu: osu.NewClient(0)}
+	client.UserID, err = client.osu.GetUserID(provider.GetToken(), client.Username)
 	client.LastUpdate = start
 	client.Logger = slog.Default().With("Username", username)
 
@@ -73,6 +73,7 @@ func NewClient(provider AuthProvider, userID int, username string, start time.Ti
 		Provider:   provider,
 		LastUpdate: start,
 		Logger:     slog.Default().With("Username", username),
+		osu:        osu.NewClient(0),
 	}
 }
 
@@ -137,7 +138,7 @@ func (c *Client) Update() bool {
 	var newest time.Time
 
 	for offset := 0; ; offset += recentScorePageSize {
-		page := osu.GetRecentScores(c.Provider.GetToken(), c.UserID, recentScorePageSize, offset)
+		page := c.osu.GetRecentScores(c.Provider.GetToken(), c.UserID, recentScorePageSize, offset)
 		c.Logger.Debug("Recent scores", "Count", len(page), "Offset", offset)
 		if len(page) == 0 {
 			break
@@ -189,7 +190,7 @@ func (c *Client) foldPage(page player.Scores, prev time.Time) (pageAllNew bool) 
 			continue
 		}
 
-		osu.GetPP(context.Background(), &score)
+		c.osu.GetPP(&score)
 		c.Logger.Debug("Possible new score", "ID", score.ID, "BeatmapID", score.Beatmap.ID, "Title", score.BeatmapSet.Title, "PP", score.PP)
 		if rank, added := c.ranking.AddScore(score); added {
 			c.Logger.Info("New score", "ID", score.ID, "BeatmapID", score.Beatmap.ID, "Title", score.BeatmapSet.Title, "PP", score.PP)

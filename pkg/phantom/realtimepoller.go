@@ -78,9 +78,9 @@ func NewOsuRealtimePoller(provider AuthProvider, cfg RealtimeConfig) *RealtimePo
 	if ruleset == "" {
 		ruleset = "osu"
 	}
-	ctx := osu.WithPriority(context.Background(), cfg.Priority)
+	client := osu.NewClient(cfg.Priority)
 	fetch := func(cursor string) (player.Scores, string, error) {
-		return osu.GetScores(ctx, provider.GetToken(), ruleset, cursor)
+		return client.GetScores(provider.GetToken(), ruleset, cursor)
 	}
 	return NewRealtimePoller(fetch, cfg.Interval)
 }

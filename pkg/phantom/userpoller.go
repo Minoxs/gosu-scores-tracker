@@ -200,12 +200,13 @@ func jitter(d time.Duration, frac float64) time.Duration {
 // osuScoreFetcher fetches a user's recent ranked scores through osu-phantom,
 // paging while a whole page is newer than since and resolving pp for each.
 func osuScoreFetcher(provider AuthProvider) ScoreFetcher {
+	client := osu.NewClient(0)
 	return func(userID int, since time.Time) ([]player.Score, time.Time, error) {
 		var out []player.Score
 		var newest time.Time
 
 		for offset := 0; ; offset += recentScorePageSize {
-			page := osu.GetRecentScores(provider.GetToken(), userID, recentScorePageSize, offset)
+			page := client.GetRecentScores(provider.GetToken(), userID, recentScorePageSize, offset)
 			if len(page) == 0 {
 				break
 			}
@@ -223,7 +224,7 @@ func osuScoreFetcher(provider AuthProvider) ScoreFetcher {
 				if !s.AwardsPP() {
 					continue
 				}
-				osu.GetPP(context.Background(), &s)
+				client.GetPP(&s)
 				out = append(out, s)
 			}
 
