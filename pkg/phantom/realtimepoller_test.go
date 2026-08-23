@@ -72,6 +72,34 @@ func TestRealtimePoller_SeedsCursorWithoutEmittingNewestPage(t *testing.T) {
 	}
 }
 
+func TestRealtimePoller_ResumeStreamsFromCursorAndAdvances(t *testing.T) {
+	sf := &scriptedFetcher{steps: []fetchResult{
+		{scores: player.Scores{{ID: 7}}, cursor: "c1"}, // first streamed page from the resumed cursor
+	}}
+	p := NewRealtimePoller(sf.fetch, time.Millisecond)
+	p.Resume("saved")
+	sub := p.Subscribe()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go p.Run(ctx)
+
+	if got := recv(t, sub); got.ID != 7 {
+		t.Fatalf("first emitted score id %d, want 7 (resume must not seed-skip a page)", got.ID)
+	}
+	if first := sf.seenCursors()[0]; first != "saved" {
+		t.Fatalf("first fetch cursor %q, want resumed \"saved\"", first)
+	}
+
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) && p.Cursor() != "c1" {
+		time.Sleep(time.Millisecond)
+	}
+	if p.Cursor() != "c1" {
+		t.Fatalf("Cursor() = %q, want advanced to c1", p.Cursor())
+	}
+}
+
 func TestRealtimePoller_RetriesSeedOnError(t *testing.T) {
 	sf := &scriptedFetcher{steps: []fetchResult{
 		{err: errors.New("boom")},                      // seed fails
