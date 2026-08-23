@@ -1,6 +1,8 @@
 package phantom
 
 import (
+	"context"
+
 	"github.com/minoxs/osu-phantom/pkg/osu"
 	"github.com/minoxs/osu-phantom/pkg/osu/optimization"
 	"github.com/minoxs/osu-phantom/pkg/osu/player"
@@ -17,21 +19,25 @@ type mapMeta struct {
 
 // osuBeatmaps is the production BeatmapProvider: it fetches beatmaps through
 // osu-phantom, memoized by id so a map fetched for one tracked user's score is not
-// fetched again.
+// fetched again. Its fetches reserve at priority, chosen by the caller so tracked
+// enrichment is not starved by lower-priority traffic.
 type osuBeatmaps struct {
 	provider AuthProvider
 	cache    *optimization.Cache[int64, mapMeta]
+	priority osu.Priority
 }
 
 // NewOsuBeatmapProvider builds a BeatmapProvider over osu-phantom, caching up to
-// cacheSize distinct beatmaps. A cacheSize of zero or less uses DefaultCacheSize.
-func NewOsuBeatmapProvider(provider AuthProvider, cacheSize int) BeatmapProvider {
+// cacheSize distinct beatmaps and reserving its fetches at priority. A cacheSize of
+// zero or less uses DefaultCacheSize.
+func NewOsuBeatmapProvider(provider AuthProvider, cacheSize int, priority osu.Priority) BeatmapProvider {
 	if cacheSize <= 0 {
 		cacheSize = DefaultCacheSize
 	}
 	return &osuBeatmaps{
 		provider: provider,
 		cache:    optimization.NewCache[int64, mapMeta](cacheSize),
+		priority: priority,
 	}
 }
 
@@ -39,7 +45,8 @@ func (b *osuBeatmaps) Beatmap(id int64) (player.Beatmap, player.BeatmapSet, erro
 	if m, ok := b.cache.Get(id); ok {
 		return m.beatmap, m.set, nil
 	}
-	bm, bs, err := osu.GetBeatmap(b.provider.GetToken(), id)
+	ctx := osu.WithPriority(context.Background(), b.priority)
+	bm, bs, err := osu.GetBeatmap(ctx, b.provider.GetToken(), id)
 	if err != nil {
 		return bm, bs, err
 	}
@@ -48,5 +55,5 @@ func (b *osuBeatmaps) Beatmap(id int64) (player.Beatmap, player.BeatmapSet, erro
 }
 
 func (b *osuBeatmaps) ResolvePP(score *player.Score) {
-	osu.GetPP(score)
+	osu.GetPP(osu.WithPriority(context.Background(), b.priority), score)
 }

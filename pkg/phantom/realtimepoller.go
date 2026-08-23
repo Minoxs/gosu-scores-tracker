@@ -15,7 +15,8 @@ import (
 // dependency of RealtimePoller, injected so the tail loop tests without the network.
 type ScoresFetcher func(cursor string) (player.Scores, string, error)
 
-// RealtimeConfig sets the tail cadence and which ruleset to follow.
+// RealtimeConfig sets the tail cadence, which ruleset to follow, and the pacer
+// priority the feed poll reserves at.
 type RealtimeConfig struct {
 	// Interval is the wait between polls once caught up. A poll returns every score
 	// set since the last one, so the interval bounds latency, not completeness, as
@@ -23,6 +24,9 @@ type RealtimeConfig struct {
 	Interval time.Duration
 	// Ruleset is the osu! ruleset name to follow, e.g. "osu". Empty means "osu".
 	Ruleset string
+	// Priority is the pacer level the feed poll reserves at. The caller sets it so
+	// the feed never starves behind lower-priority traffic.
+	Priority osu.Priority
 }
 
 const (
@@ -74,8 +78,9 @@ func NewOsuRealtimePoller(provider AuthProvider, cfg RealtimeConfig) *RealtimePo
 	if ruleset == "" {
 		ruleset = "osu"
 	}
+	ctx := osu.WithPriority(context.Background(), cfg.Priority)
 	fetch := func(cursor string) (player.Scores, string, error) {
-		return osu.GetScores(provider.GetToken(), ruleset, cursor)
+		return osu.GetScores(ctx, provider.GetToken(), ruleset, cursor)
 	}
 	return NewRealtimePoller(fetch, cfg.Interval)
 }

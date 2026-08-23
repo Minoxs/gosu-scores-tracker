@@ -115,6 +115,23 @@ func TestRealtimeTracker_DropsUnrankedFlagBeforeFetch(t *testing.T) {
 	}
 }
 
+func TestRealtimeTracker_DropsUnrankedModsBeforeFetch(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	b := NewBroadcaster()
+	beatmaps := &fakeBeatmaps{beatmap: rankedBeatmap}
+	tr := newTracked(ctx, b, beatmaps, 7)
+
+	s := rankedScore(7)
+	s.Mods = player.Mods{{Acronym: "RX"}} // relax never awards pp
+	b.Emit(s)
+
+	assertNoScore(t, tr.Scores())
+	if beatmaps.fetches != 0 {
+		t.Fatalf("unranked-mod score triggered %d fetches, want 0", beatmaps.fetches)
+	}
+}
+
 func TestRealtimeTracker_DropsWhenStatusAwardsNoPP(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

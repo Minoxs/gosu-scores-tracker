@@ -1,6 +1,7 @@
 package osu
 
 import (
+	"context"
 	"log/slog"
 
 	"github.com/minoxs/osu-phantom/pkg/osu/crosu"
@@ -19,7 +20,7 @@ type attrKey struct {
 // without re-downloading or re-parsing the map file.
 var attributeCache = optimization.NewCache[attrKey, crosu.OsuDifficultyAttributes](10000)
 
-func GetPP(score *player.Score) {
+func GetPP(ctx context.Context, score *player.Score) {
 	if score.PP > 0 {
 		return
 	}
@@ -30,11 +31,11 @@ func GetPP(score *player.Score) {
 	slog.Info("Calculating score pp with crosu", "BeatmapID", score.Beatmap.ID, "Title", score.BeatmapSet.Title, "Mods", score.Mods.Acronyms(), "Mode", score.Mode())
 
 	if mode == crosu.OSU {
-		score.PP = getOsuPP(score, mods)
+		score.PP = getOsuPP(ctx, score, mods)
 		return
 	}
 
-	var beatmap, err = DownloadBeatmap(score.Beatmap.ID)
+	var beatmap, err = DownloadBeatmap(ctx, score.Beatmap.ID)
 	if err != nil {
 		slog.Error("Error downloading beatmap", "BeatmapID", score.Beatmap.ID, "Title", score.BeatmapSet.Title)
 		return
@@ -52,12 +53,12 @@ func GetPP(score *player.Score) {
 	)
 }
 
-func getOsuPP(score *player.Score, mods crosu.ModType) float64 {
+func getOsuPP(ctx context.Context, score *player.Score, mods crosu.ModType) float64 {
 	var key = attrKey{ID: score.Beatmap.ID, Mods: mods}
 
 	var attr, found = attributeCache.Get(key)
 	if !found {
-		var beatmap, err = DownloadBeatmap(score.Beatmap.ID)
+		var beatmap, err = DownloadBeatmap(ctx, score.Beatmap.ID)
 		if err != nil {
 			slog.Error("Error downloading beatmap", "BeatmapID", score.Beatmap.ID, "Title", score.BeatmapSet.Title)
 			return 0

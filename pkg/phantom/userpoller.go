@@ -223,7 +223,7 @@ func osuScoreFetcher(provider AuthProvider) ScoreFetcher {
 				if !s.AwardsPP() {
 					continue
 				}
-				osu.GetPP(&s)
+				osu.GetPP(context.Background(), &s)
 				out = append(out, s)
 			}
 

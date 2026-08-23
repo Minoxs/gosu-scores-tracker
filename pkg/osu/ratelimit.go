@@ -1,6 +1,7 @@
 package osu
 
 import (
+	"container/heap"
 	"context"
 	"net/http"
 	"sync"
@@ -12,36 +13,71 @@ import (
 // so the whole process, across all callers, stays under it.
 const defaultRequestsPerMinute = 60
 
-// priorityKey marks a request context as interactive so it reserves ahead of
-// background traffic at the shared rate limit.
+// Priority orders requests at the shared pacer: when several wait at once, a higher
+// value is granted first, and ties break by arrival order. This package only orders
+// the levels; the caller assigns their meaning. The zero value is the level an
+// untagged request carries.
+type Priority int
+
 type priorityKey struct{}
 
-// prioritize tags req as interactive, so the pacer serves it before background
-// requests such as the global feed tail and its beatmap enrichment.
-func prioritize(req *http.Request) *http.Request {
-	return req.WithContext(context.WithValue(req.Context(), priorityKey{}, true))
+// WithPriority tags ctx so a request made under it reserves at level p on the shared
+// pacer. Requests without a tag reserve at the zero level.
+func WithPriority(ctx context.Context, p Priority) context.Context {
+	return context.WithValue(ctx, priorityKey{}, p)
+}
+
+func priorityFrom(ctx context.Context) Priority {
+	p, _ := ctx.Value(priorityKey{}).(Priority)
+	return p
+}
+
+// waiter is one pending reservation; ready closes when the pacer grants it.
+type waiter struct {
+	prio  Priority
+	seq   uint64
+	ready chan struct{}
+}
+
+// waiterHeap orders by descending priority, then ascending seq so a level is served
+// first-come first-served.
+type waiterHeap []*waiter
+
+func (h waiterHeap) Len() int { return len(h) }
+func (h waiterHeap) Less(i, j int) bool {
+	if h[i].prio != h[j].prio {
+		return h[i].prio > h[j].prio
+	}
+	return h[i].seq < h[j].seq
+}
+func (h waiterHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
+func (h *waiterHeap) Push(x any)   { *h = append(*h, x.(*waiter)) }
+func (h *waiterHeap) Pop() any {
+	old := *h
+	n := len(old)
+	w := old[n-1]
+	old[n-1] = nil
+	*h = old[:n-1]
+	return w
 }
 
 // pacer spaces osu! requests to keep the whole process under the API ceiling,
-// granting one slot per interval. Interactive reservations (a user lookup behind a
-// page load) are served before background ones (the global feed tail and its
-// enrichment), so a burst of background polling never delays an interactive
-// request by more than a single slot.
+// granting one slot per interval to the highest-priority waiter. A caller reserves
+// at a priority it chooses, so a burst of low-priority traffic never delays a
+// higher-priority request by more than a single slot.
 type pacer struct {
-	high  chan chan struct{}
-	low   chan chan struct{}
-	start sync.Once
-
 	mu       sync.Mutex
+	cond     *sync.Cond
+	queue    waiterHeap
+	seq      uint64
 	interval time.Duration
+	started  bool
 }
 
 func newPacer(perMinute int) *pacer {
-	return &pacer{
-		high:     make(chan chan struct{}),
-		low:      make(chan chan struct{}),
-		interval: rateInterval(perMinute),
-	}
+	p := &pacer{interval: rateInterval(perMinute)}
+	p.cond = sync.NewCond(&p.mu)
+	return p
 }
 
 func rateInterval(perMinute int) time.Duration {
@@ -51,54 +87,43 @@ func rateInterval(perMinute int) time.Duration {
 	return time.Minute / time.Duration(perMinute)
 }
 
-// reserve blocks until the pacer grants a slot or ctx is cancelled. A high-priority
-// reservation jumps ahead of any waiting low-priority ones.
-func (p *pacer) reserve(ctx context.Context, high bool) error {
-	p.start.Do(func() { go p.run() })
+// reserve blocks until the pacer grants a slot or ctx is cancelled. A higher
+// priority is granted ahead of any lower one waiting at the same time.
+func (p *pacer) reserve(ctx context.Context, prio Priority) error {
+	w := &waiter{prio: prio, ready: make(chan struct{})}
 
-	slot := make(chan struct{})
-	queue := p.low
-	if high {
-		queue = p.high
+	p.mu.Lock()
+	if !p.started {
+		p.started = true
+		go p.run()
 	}
+	w.seq = p.seq
+	p.seq++
+	heap.Push(&p.queue, w)
+	p.cond.Signal()
+	p.mu.Unlock()
+
 	select {
-	case queue <- slot:
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-	select {
-	case <-slot:
+	case <-w.ready:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
 	}
 }
 
-// run grants one slot per interval, always preferring a waiting high-priority
-// reservation.
+// run grants one waiter per interval, always the highest priority waiting.
 func (p *pacer) run() {
 	for {
-		close(p.nextWaiter())
 		p.mu.Lock()
+		for p.queue.Len() == 0 {
+			p.cond.Wait()
+		}
+		w := heap.Pop(&p.queue).(*waiter)
 		interval := p.interval
 		p.mu.Unlock()
-		time.Sleep(interval)
-	}
-}
 
-// nextWaiter blocks until a reservation is waiting and returns the one to grant,
-// draining a high-priority waiter first.
-func (p *pacer) nextWaiter() chan struct{} {
-	select {
-	case s := <-p.high:
-		return s
-	default:
-	}
-	select {
-	case s := <-p.high:
-		return s
-	case s := <-p.low:
-		return s
+		close(w.ready)
+		time.Sleep(interval)
 	}
 }
 
@@ -116,8 +141,7 @@ type throttledTransport struct {
 }
 
 func (t *throttledTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	high, _ := req.Context().Value(priorityKey{}).(bool)
-	if err := t.pacer.reserve(req.Context(), high); err != nil {
+	if err := t.pacer.reserve(req.Context(), priorityFrom(req.Context())); err != nil {
 		return nil, err
 	}
 	return t.base.RoundTrip(req)
