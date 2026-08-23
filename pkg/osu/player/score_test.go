@@ -90,6 +90,21 @@ func TestScore_AwardsPP_LeanRankedFlag(t *testing.T) {
 	}
 }
 
+// An unranked mod disqualifies pp even on an otherwise pp-awarding ranked map.
+func TestScore_AwardsPP_UnrankedMods(t *testing.T) {
+	for _, acronym := range []string{"RX", "AP", "DA", "SO"} {
+		score := Score{Ranked: true, Beatmap: Beatmap{Status: StatusRanked}, Mods: Mods{{Acronym: acronym}}}
+		if score.AwardsPP() {
+			t.Errorf("AwardsPP() = true with unranked mod %q, want false", acronym)
+		}
+	}
+
+	ranked := Score{Ranked: true, Beatmap: Beatmap{Status: StatusRanked}, Mods: Mods{{Acronym: "HD"}, {Acronym: "DT"}}}
+	if !ranked.AwardsPP() {
+		t.Error("AwardsPP() = false with ranked mods HD,DT, want true")
+	}
+}
+
 func TestScoreMode(t *testing.T) {
 	cases := map[int]string{0: "osu", 1: "taiko", 2: "fruits", 3: "mania", 9: ""}
 	for id, want := range cases {

@@ -183,8 +183,8 @@ func TestRanking_AddScoreOrdered(t *testing.T) {
 			for _, score := range testCase.Scores {
 				rank.AddScore(score)
 			}
-			assertEqual(t, testCase.ExpectedCount, int(rank.count))
-			for i := 1; i < int(rank.count); i++ {
+			assertEqual(t, testCase.ExpectedCount, rank.Count())
+			for i := 1; i < rank.Count(); i++ {
 				if rank.scores[i].PP > rank.scores[i-1].PP {
 					t.Fatal("Rank is unordered")
 				}
@@ -210,7 +210,7 @@ func TestRanking_AddScoreUniqueScoreID(t *testing.T) {
 				}
 				ids[score.ID] = true
 			}
-			assertEqual(t, testCase.ExpectedCount, int(rank.count))
+			assertEqual(t, testCase.ExpectedCount, rank.Count())
 		})
 	}
 }
@@ -232,7 +232,7 @@ func TestRanking_AddScoreUniqueBeatmapID(t *testing.T) {
 				}
 				ids[score.Beatmap.ID] = true
 			}
-			assertEqual(t, testCase.ExpectedCount, int(rank.count))
+			assertEqual(t, testCase.ExpectedCount, rank.Count())
 		})
 	}
 }
@@ -264,9 +264,9 @@ func TestRanking_AddScore(t *testing.T) {
 
 	for i, score := range scores {
 		rank.AddScore(score)
-		assertEqual(t, i+1, int(rank.count))
+		assertEqual(t, i+1, rank.Count())
 
-		for j := 1; j < int(rank.count); j++ {
+		for j := 1; j < rank.Count(); j++ {
 			if rank.scores[j].PP > rank.scores[j-1].PP {
 				t.Fatalf("Rank is unordered")
 			}
@@ -282,8 +282,7 @@ func TestRanking_GetTotalPPSingle(t *testing.T) {
 	t.Run("Single", func(t *testing.T) {
 		const ExpectedTotalPP = float64(100)
 		var rank = Ranking{
-			count: 1,
-			scores: [RankSize]Score{
+			scores: []Score{
 				{PP: ExpectedTotalPP},
 			},
 		}
@@ -294,8 +293,7 @@ func TestRanking_GetTotalPPSingle(t *testing.T) {
 	t.Run("Multiple", func(t *testing.T) {
 		const ExpectedTotalPP = float64(336 + 316 + 298 + 282 + 267)
 		var rank = Ranking{
-			count: 5,
-			scores: [RankSize]Score{
+			scores: []Score{
 				{PP: 336.242},
 				{PP: 332.834},
 				{PP: 330.403},
@@ -308,33 +306,9 @@ func TestRanking_GetTotalPPSingle(t *testing.T) {
 	})
 }
 
-func TestRanking_Clone(t *testing.T) {
-	var expected = Ranking{
-		count: 5,
-		scores: [RankSize]Score{
-			{PP: 336.242},
-			{PP: 332.834},
-			{PP: 330.403},
-			{PP: 328.735},
-			{PP: 328.239},
-		},
-	}
-	var actual = expected
-	assertEqual(t, expected.count, actual.count)
-	assert(t, &expected.scores != &actual.scores, "Pointing to the same ranking")
-
-	actual.scores[0] = Score{}
-	assert(t, expected.scores[0].PP > actual.scores[0].PP, "Messed up the ranking")
-
-	for i := int8(1); i < actual.count; i++ {
-		assertEqual(t, expected.scores[i].PP, actual.scores[i].PP)
-	}
-}
-
 func TestRanking_Getters(t *testing.T) {
 	var expected = Ranking{
-		count: 5,
-		scores: [RankSize]Score{
+		scores: []Score{
 			{PP: 336.242},
 			{PP: 332.834},
 			{PP: 330.403},
@@ -342,16 +316,16 @@ func TestRanking_Getters(t *testing.T) {
 			{PP: 328.239},
 		},
 	}
-	assertEqual(t, int(expected.count), expected.Count())
+	assertEqual(t, len(expected.scores), expected.Count())
 
 	var scores = expected.Scores()
-	assert(t, &scores[0] != &expected.scores[0], "Score getter points to backing array")
-	assertEqual(t, int(expected.count), len(scores))
+	assert(t, &scores[0] != &expected.scores[0], "Score getter points to backing slice")
+	assertEqual(t, len(expected.scores), len(scores))
 
 	assertEqual(t, expected.scores[0].PP, scores[0].PP)
 	scores[0].PP = 0
 	assertEqual(t, 0, scores[0].PP)
-	assert(t, expected.scores[0].PP > scores[0].PP, "Modification in copied slice modified backing array")
+	assert(t, expected.scores[0].PP > scores[0].PP, "Modification in copied slice modified backing slice")
 }
 
 func BenchmarkRanking_AddScore(b *testing.B) {
