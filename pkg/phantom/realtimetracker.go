@@ -73,7 +73,9 @@ func (t *RealtimeTracker) run(ctx context.Context, in <-chan player.Score) {
 }
 
 // admit runs the gates that need no fetch: tracked user set after their start, an
-// osu!standard ruleset, and the feed's ranked flag as a cheap pre-check.
+// osu!standard ruleset, mods that keep a score ranked, and the feed's ranked flag
+// as a cheap pre-check. The mods gate drops relax and other unranked-mod scores
+// before they cost a beatmap fetch and a pp calc they could never earn.
 func (t *RealtimeTracker) admit(s player.Score) bool {
 	t.mu.Lock()
 	since, tracked := t.tracked[s.UserID]
@@ -83,6 +85,9 @@ func (t *RealtimeTracker) admit(s player.Score) bool {
 		return false
 	}
 	if s.RulesetID != 0 {
+		return false
+	}
+	if !s.Mods.IsRanked() {
 		return false
 	}
 	return s.Ranked
