@@ -21,6 +21,10 @@ func (f *fakeBeatmaps) Beatmap(id int64) (player.Beatmap, player.BeatmapSet, err
 	return f.beatmap(id)
 }
 
+// ResolvePP mirrors osu.GetPP's contract of trusting an already-reported pp, so
+// tests can assert the feed's pp survives.
+func (f *fakeBeatmaps) ResolvePP(*player.Score) {}
+
 // rankedBeatmap fills a ranked map so enrichment passes the status gate.
 func rankedBeatmap(id int64) (player.Beatmap, player.BeatmapSet, error) {
 	return player.Beatmap{ID: id, Status: player.StatusRanked}, player.BeatmapSet{Title: "T"}, nil

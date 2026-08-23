@@ -6,15 +6,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/minoxs/osu-phantom/pkg/osu"
 	"github.com/minoxs/osu-phantom/pkg/osu/player"
 )
 
-// BeatmapProvider supplies the beatmap a lean feed score omits, by id.
-// NewOsuBeatmapProvider is the production implementation over osu-phantom; tests
-// supply their own.
+// BeatmapProvider supplies what a lean feed score derives from its map: the beatmap
+// the feed omits, and pp, which crosu computes from that same map. NewOsuBeatmapProvider
+// is the production implementation over osu-phantom; tests supply their own.
 type BeatmapProvider interface {
 	Beatmap(id int64) (player.Beatmap, player.BeatmapSet, error)
+	// ResolvePP sets a score's pp when the feed reported none.
+	ResolvePP(score *player.Score)
 }
 
 // RealtimeTracker is a ScoreTracker over a lean score provider such as
@@ -101,7 +102,7 @@ func (t *RealtimeTracker) complete(s *player.Score) bool {
 	if !s.IsRanked() {
 		return false
 	}
-	osu.GetPP(s)
+	t.beatmaps.ResolvePP(s)
 	return true
 }
 

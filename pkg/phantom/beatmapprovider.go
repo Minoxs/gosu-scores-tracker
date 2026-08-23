@@ -46,3 +46,7 @@ func (b *osuBeatmaps) Beatmap(id int64) (player.Beatmap, player.BeatmapSet, erro
 	b.cache.Set(id, mapMeta{beatmap: bm, set: bs})
 	return bm, bs, nil
 }
+
+func (b *osuBeatmaps) ResolvePP(score *player.Score) {
+	osu.GetPP(score)
+}
