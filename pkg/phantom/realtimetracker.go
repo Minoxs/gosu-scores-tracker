@@ -99,7 +99,7 @@ func (t *RealtimeTracker) complete(s *player.Score) bool {
 	}
 	s.Beatmap = bm
 	s.BeatmapSet = bs
-	if !s.IsRanked() {
+	if !s.Beatmap.Status.AwardsPP() {
 		return false
 	}
 	t.beatmaps.ResolvePP(s)
