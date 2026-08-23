@@ -72,7 +72,7 @@ func GetUserID(token *GuestToken, username string) (int, error) {
 	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
 	req.Header.Add(apiVersionHeader, APIVersion)
 
-	res, err := apiClient.Do(req)
+	res, err := apiClient.Do(prioritize(req))
 	if err != nil {
 		return 0, err
 	}
@@ -110,7 +110,7 @@ func GetUser(token *GuestToken, id int64) (*player.Profile, error) {
 	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
 	req.Header.Add(apiVersionHeader, APIVersion)
 
-	res, err := apiClient.Do(req)
+	res, err := apiClient.Do(prioritize(req))
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func GetUserByName(token *GuestToken, username string) (*player.Profile, error) 
 	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
 	req.Header.Add(apiVersionHeader, APIVersion)
 
-	res, err := apiClient.Do(req)
+	res, err := apiClient.Do(prioritize(req))
 	if err != nil {
 		return nil, err
 	}
