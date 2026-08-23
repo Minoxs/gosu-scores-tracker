@@ -2,7 +2,6 @@ package osu
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -44,19 +43,19 @@ func createRequestBody(i any) io.Reader {
 	return bytes.NewBuffer(data)
 }
 
-func GetGuestToken(ctx context.Context, c Credentials) (*GuestToken, error) {
+func (c *Client) GetGuestToken(creds Credentials) (*GuestToken, error) {
 	body := AuthGrant{
-		ClientID:     c.ClientID,
-		ClientSecret: c.ClientSecret,
+		ClientID:     creds.ClientID,
+		ClientSecret: creds.ClientSecret,
 		GrantType:    "client_credentials",
 		Scope:        "public",
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, buildOAUTHUrl("token"), createRequestBody(body))
+	req, err := http.NewRequest(http.MethodPost, buildOAUTHUrl("token"), createRequestBody(body))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", JSON)
-	r, err := apiClient.Do(req)
+	r, err := c.http.Do(req)
 
 	if err != nil {
 		return nil, err
@@ -71,14 +70,14 @@ func GetGuestToken(ctx context.Context, c Credentials) (*GuestToken, error) {
 	}
 }
 
-func GetUserID(token *GuestToken, username string) (int, error) {
+func (c *Client) GetUserID(token *GuestToken, username string) (int, error) {
 	endpoint := fmt.Sprintf("users/%s/osu/?key=username", username)
 
 	req, _ := http.NewRequest(GET, APIv2URL(endpoint), nil)
 	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
 	req.Header.Add(apiVersionHeader, APIVersion)
 
-	res, err := apiClient.Do(req)
+	res, err := c.http.Do(req)
 	if err != nil {
 		return 0, err
 	}
@@ -109,28 +108,28 @@ func decodeProfile(res *http.Response) (*player.Profile, error) {
 	return profile, nil
 }
 
-// GetUser fetches a full osu!standard profile by user id, at the priority carried
-// on ctx. Returns ErrUserNotFound when no user carries that id.
-func GetUser(ctx context.Context, token *GuestToken, id int64) (*player.Profile, error) {
-	req, _ := http.NewRequestWithContext(ctx, GET, APIv2URL(fmt.Sprintf("users/%d/osu", id)), nil)
+// GetUser fetches a full osu!standard profile by user id. Returns ErrUserNotFound
+// when no user carries that id.
+func (c *Client) GetUser(token *GuestToken, id int64) (*player.Profile, error) {
+	req, _ := http.NewRequest(GET, APIv2URL(fmt.Sprintf("users/%d/osu", id)), nil)
 	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
 	req.Header.Add(apiVersionHeader, APIVersion)
 
-	res, err := apiClient.Do(req)
+	res, err := c.http.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	return decodeProfile(res)
 }
 
-// GetUserByName fetches a full osu!standard profile by username, at the priority
-// carried on ctx. Returns ErrUserNotFound when no user carries that name.
-func GetUserByName(ctx context.Context, token *GuestToken, username string) (*player.Profile, error) {
-	req, _ := http.NewRequestWithContext(ctx, GET, APIv2URL(fmt.Sprintf("users/%s/osu?key=username", username)), nil)
+// GetUserByName fetches a full osu!standard profile by username. Returns
+// ErrUserNotFound when no user carries that name.
+func (c *Client) GetUserByName(token *GuestToken, username string) (*player.Profile, error) {
+	req, _ := http.NewRequest(GET, APIv2URL(fmt.Sprintf("users/%s/osu?key=username", username)), nil)
 	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
 	req.Header.Add(apiVersionHeader, APIVersion)
 
-	res, err := apiClient.Do(req)
+	res, err := c.http.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -140,14 +139,14 @@ func GetUserByName(ctx context.Context, token *GuestToken, username string) (*pl
 // GetRecentScores fetches one page of a user's recent osu!standard scores,
 // newest first. limit is capped at 100 by the osu! API; offset pages past the
 // newest results.
-func GetRecentScores(token *GuestToken, userid, limit, offset int) player.Scores {
+func (c *Client) GetRecentScores(token *GuestToken, userid, limit, offset int) player.Scores {
 	endpoint := fmt.Sprintf("users/%d/scores/recent/?mode=osu&limit=%d&offset=%d", userid, limit, offset)
 
 	req, _ := http.NewRequest(GET, APIv2URL(endpoint), nil)
 	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
 	req.Header.Add(apiVersionHeader, APIVersion)
 
-	res, err := apiClient.Do(req)
+	res, err := c.http.Do(req)
 	if err != nil {
 		slog.Error("Error while sending request", "Error", err)
 		return nil
@@ -169,17 +168,17 @@ func GetRecentScores(token *GuestToken, userid, limit, offset int) player.Scores
 // cursor_string from a previous page, or empty for the newest page; the returned
 // cursor_string fetches the scores newer than this page. Scores carry no embedded
 // beatmap, only a beatmap_id.
-func GetScores(ctx context.Context, token *GuestToken, ruleset, cursor string) (player.Scores, string, error) {
+func (c *Client) GetScores(token *GuestToken, ruleset, cursor string) (player.Scores, string, error) {
 	endpoint := "scores?ruleset=" + ruleset
 	if cursor != "" {
 		endpoint += "&cursor_string=" + cursor
 	}
 
-	req, _ := http.NewRequestWithContext(ctx, GET, APIv2URL(endpoint), nil)
+	req, _ := http.NewRequest(GET, APIv2URL(endpoint), nil)
 	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
 	req.Header.Add(apiVersionHeader, APIVersion)
 
-	res, err := apiClient.Do(req)
+	res, err := c.http.Do(req)
 	if err != nil {
 		return nil, "", err
 	}
@@ -199,14 +198,14 @@ func GetScores(ctx context.Context, token *GuestToken, ruleset, cursor string) (
 	return page.Scores, page.CursorString, nil
 }
 
-func GetBeatmapScores(token *GuestToken, userID int, beatmapID int) player.Scores {
+func (c *Client) GetBeatmapScores(token *GuestToken, userID int, beatmapID int) player.Scores {
 	endpoint := fmt.Sprintf("beatmaps/%d/scores/users/%d/all", beatmapID, userID)
 
 	req, _ := http.NewRequest(GET, APIv2URL(endpoint), nil)
 	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
 	req.Header.Add(apiVersionHeader, APIVersion)
 
-	res, err := apiClient.Do(req)
+	res, err := c.http.Do(req)
 	if err != nil {
 		slog.Error("Error while sending request", "Error", err)
 		return nil
@@ -229,12 +228,12 @@ func GetBeatmapScores(token *GuestToken, userID int, beatmapID int) player.Score
 // owning beatmapset in the response, so both are returned: the map for its status
 // and difficulty, the set for its title, artist, and cover art. Unlike the beatmap
 // embedded in a score, this response carries a real max_combo.
-func GetBeatmap(ctx context.Context, token *GuestToken, id int64) (player.Beatmap, player.BeatmapSet, error) {
-	req, _ := http.NewRequestWithContext(ctx, GET, APIv2URL(fmt.Sprintf("beatmaps/%d", id)), nil)
+func (c *Client) GetBeatmap(token *GuestToken, id int64) (player.Beatmap, player.BeatmapSet, error) {
+	req, _ := http.NewRequest(GET, APIv2URL(fmt.Sprintf("beatmaps/%d", id)), nil)
 	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
 	req.Header.Add(apiVersionHeader, APIVersion)
 
-	res, err := apiClient.Do(req)
+	res, err := c.http.Do(req)
 	if err != nil {
 		return player.Beatmap{}, player.BeatmapSet{}, err
 	}
@@ -254,7 +253,7 @@ func GetBeatmap(ctx context.Context, token *GuestToken, id int64) (player.Beatma
 	return body.Beatmap, body.BeatmapSet, nil
 }
 
-func DownloadBeatmap(ctx context.Context, id int64) (buf []byte, err error) {
+func (c *Client) DownloadBeatmap(id int64) (buf []byte, err error) {
 	if beatmap, found := optimization.GetBeatmap(id); found {
 		return beatmap, nil
 	}
@@ -262,11 +261,11 @@ func DownloadBeatmap(ctx context.Context, id int64) (buf []byte, err error) {
 	var url = BaseURL + "/osu/" + fmt.Sprintf("%d", id)
 	var res *http.Response
 
-	req, err := http.NewRequestWithContext(ctx, GET, url, nil)
+	req, err := http.NewRequest(GET, url, nil)
 	if err != nil {
 		return nil, err
 	}
-	res, err = apiClient.Do(req)
+	res, err = c.http.Do(req)
 	if err != nil {
 		return
 	}

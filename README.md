@@ -8,11 +8,11 @@ Each score's pp is taken from the osu! API when present, otherwise computed loca
 
 ## Rate limiting
 
-Every request the package makes to the osu! API passes through a single process-wide pacer, so the whole program stays inside the osu! API terms of use regardless of how many clients run. The default is 60 requests per minute; change it with `osu.SetRateLimit`.
+Every osu! API request goes through an `osu.Client`, and every client reserves a slot on a single process-wide pacer, so the whole program stays inside the osu! API terms of use regardless of how many clients run. The default is 60 requests per minute; change it with `osu.SetRateLimit`. A client is built at a priority with `osu.NewClient(prio)`: when several requests wait at once the pacer grants the higher priority first, so a burst of background traffic never delays a higher-priority request by more than one slot. The priority is the client's, chosen once when it is built; the request methods carry none of their own. The caller assigns the levels their meaning.
 
 ## Usage
 
-Authorize with an OAuth client-credentials token through `osu.GetGuestToken`, then hand a `phantom.AuthProvider` to a client. `phantom.NewClient` builds a client for a known user id; `phantom.Login` looks the user up by name first. `Client.Update` fetches new scores, paging by offset while every score on a page is newer than the last seen, and folds them into the ranking. `Client.KeepUpdated` runs that on an interval until the user goes idle. `Client.Ranking`, `Client.GetTotalPP`, and `Client.Restore` read the ranking and rehydrate it from persisted scores.
+Authorize with an OAuth client-credentials token through `osu.NewClient(prio).GetGuestToken`, then hand a `phantom.AuthProvider` to a client. `phantom.NewClient` builds a client for a known user id; `phantom.Login` looks the user up by name first. `Client.Update` fetches new scores, paging by offset while every score on a page is newer than the last seen, and folds them into the ranking. `Client.KeepUpdated` runs that on an interval until the user goes idle. `Client.Ranking`, `Client.GetTotalPP`, and `Client.Restore` read the ranking and rehydrate it from persisted scores.
 
 ## Building
 

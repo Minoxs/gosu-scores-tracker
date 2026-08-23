@@ -15,22 +15,9 @@ const defaultRequestsPerMinute = 60
 
 // Priority orders requests at the shared pacer: when several wait at once, a higher
 // value is granted first, and ties break by arrival order. This package only orders
-// the levels; the caller assigns their meaning. The zero value is the level an
-// untagged request carries.
+// the levels; the caller assigns their meaning by building a Client at each level.
+// The zero value is the level a default Client carries.
 type Priority int
-
-type priorityKey struct{}
-
-// WithPriority tags ctx so a request made under it reserves at level p on the shared
-// pacer. Requests without a tag reserve at the zero level.
-func WithPriority(ctx context.Context, p Priority) context.Context {
-	return context.WithValue(ctx, priorityKey{}, p)
-}
-
-func priorityFrom(ctx context.Context) Priority {
-	p, _ := ctx.Value(priorityKey{}).(Priority)
-	return p
-}
 
 // waiter is one pending reservation; ready closes when the pacer grants it.
 type waiter struct {
@@ -133,21 +120,24 @@ func (p *pacer) setRate(perMinute int) {
 	p.mu.Unlock()
 }
 
-// throttledTransport blocks each request until the pacer grants it a slot, at the
-// priority carried on the request context.
+// throttledTransport blocks each request until the pacer grants it a slot at prio,
+// the level of the Client that owns this transport. The request context is honored
+// only for cancellation.
 type throttledTransport struct {
 	base  http.RoundTripper
 	pacer *pacer
+	prio  Priority
 }
 
 func (t *throttledTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if err := t.pacer.reserve(req.Context(), priorityFrom(req.Context())); err != nil {
+	if err := t.pacer.reserve(req.Context(), t.prio); err != nil {
 		return nil, err
 	}
 	return t.base.RoundTrip(req)
 }
 
-// globalPacer throttles apiClient. It is installed in config.go.
+// globalPacer is the process-wide pacer every Client reserves on, so the rate ceiling
+// holds across all callers and priority levels.
 var globalPacer = newPacer(defaultRequestsPerMinute)
 
 // SetRateLimit caps every osu! request this package makes to perMinute requests
