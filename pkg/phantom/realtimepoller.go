@@ -50,8 +50,6 @@ type RealtimePoller struct {
 	logger   *slog.Logger
 }
 
-var _ ScoreProvider = (*RealtimePoller)(nil)
-
 // NewRealtimePoller builds a poller driven by the given fetcher.
 func NewRealtimePoller(fetch ScoresFetcher, interval time.Duration) *RealtimePoller {
 	if interval <= 0 {

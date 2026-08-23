@@ -49,8 +49,6 @@ type UserPoller struct {
 	closed  bool
 }
 
-var _ ScoreTracker = (*UserPoller)(nil)
-
 // NewUserPoller builds a tracker driven by the given fetcher.
 func NewUserPoller(fetch ScoreFetcher, cfg PollConfig) *UserPoller {
 	if cfg.BaseInterval <= 0 {

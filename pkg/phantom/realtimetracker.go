@@ -6,16 +6,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/minoxs/osu-phantom/pkg/osu"
 	"github.com/minoxs/osu-phantom/pkg/osu/player"
 )
 
-// BeatmapFetcher fills the beatmap a lean feed score omits. osu.GetBeatmap
-// satisfies it once bound to a token.
-type BeatmapFetcher func(id int64) (player.Beatmap, player.BeatmapSet, error)
-
-// PPResolver sets a score's pp when the feed did not report it. osu.GetPP
-// satisfies it. Injected so this package stays free of the cgo pp path.
-type PPResolver func(*player.Score)
+// BeatmapProvider supplies the beatmap a lean feed score omits, by id.
+// NewOsuBeatmapProvider is the production implementation over osu-phantom; tests
+// supply their own.
+type BeatmapProvider interface {
+	Beatmap(id int64) (player.Beatmap, player.BeatmapSet, error)
+}
 
 // RealtimeTracker is a ScoreTracker over a lean score provider such as
 // RealtimePoller. It follows a chosen set of users and, for each of their new
@@ -28,23 +28,19 @@ type RealtimeTracker struct {
 	tracked map[int]time.Time
 	out     chan player.Score
 
-	fetch     BeatmapFetcher
-	resolvePP PPResolver
-	logger    *slog.Logger
+	beatmaps BeatmapProvider
+	logger   *slog.Logger
 }
-
-var _ ScoreTracker = (*RealtimeTracker)(nil)
 
 // NewRealtimeTracker subscribes to provider and starts forwarding tracked users'
 // ranked osu!standard scores, each enriched and with pp resolved. It stops and
 // closes Scores when ctx is cancelled or the provider closes the subscription.
-func NewRealtimeTracker(ctx context.Context, provider ScoreProvider, fetch BeatmapFetcher, resolvePP PPResolver) *RealtimeTracker {
+func NewRealtimeTracker(ctx context.Context, provider ScoreProvider, beatmaps BeatmapProvider) *RealtimeTracker {
 	t := &RealtimeTracker{
-		tracked:   make(map[int]time.Time),
-		out:       make(chan player.Score, DefaultSubBuffer),
-		fetch:     fetch,
-		resolvePP: resolvePP,
-		logger:    slog.Default().With("component", "realtime"),
+		tracked:  make(map[int]time.Time),
+		out:      make(chan player.Score, DefaultSubBuffer),
+		beatmaps: beatmaps,
+		logger:   slog.Default().With("component", "realtime"),
 	}
 	go t.run(ctx, provider.Subscribe())
 	return t
@@ -63,7 +59,7 @@ func (t *RealtimeTracker) run(ctx context.Context, in <-chan player.Score) {
 			if !t.admit(s) {
 				continue
 			}
-			if !t.enrich(&s) {
+			if !t.complete(&s) {
 				continue
 			}
 			select {
@@ -91,11 +87,11 @@ func (t *RealtimeTracker) admit(s player.Score) bool {
 	return s.Ranked
 }
 
-// enrich fills the score's beatmap and resolves pp, returning false when the fetch
-// fails or the map's authoritative status awards no pp. It reports whether the
-// score should be emitted.
-func (t *RealtimeTracker) enrich(s *player.Score) bool {
-	bm, bs, err := t.fetch(s.BeatmapID)
+// complete fills the score's beatmap and resolves pp, returning false when the
+// fetch fails or the map's authoritative status awards no pp. GetPP trusts the
+// feed's pp and only computes when a ranked map reported none.
+func (t *RealtimeTracker) complete(s *player.Score) bool {
+	bm, bs, err := t.beatmaps.Beatmap(s.BeatmapID)
 	if err != nil {
 		t.logger.Warn("realtime beatmap fetch failed", "beatmap", s.BeatmapID, "err", err)
 		return false
@@ -105,7 +101,7 @@ func (t *RealtimeTracker) enrich(s *player.Score) bool {
 	if !s.IsRanked() {
 		return false
 	}
-	t.resolvePP(s)
+	osu.GetPP(s)
 	return true
 }
 
