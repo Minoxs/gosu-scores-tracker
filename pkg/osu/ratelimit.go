@@ -75,7 +75,7 @@ func (p *pacer) reserve(ctx context.Context, high bool) error {
 }
 
 // run grants one slot per interval, always preferring a waiting high-priority
-// reservation, and idles at no cost when nobody is waiting.
+// reservation.
 func (p *pacer) run() {
 	for {
 		close(p.nextWaiter())

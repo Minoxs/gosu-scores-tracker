@@ -10,9 +10,7 @@ import (
 const RankSize = 100
 
 // Ranking holds a player's best scores for a window, at most one per beatmap,
-// ordered by pp descending and capped at RankSize. It is backed by a slice grown
-// on demand, so a window holding a handful of scores costs a handful of scores,
-// not a fixed hundred-slot array.
+// ordered by pp descending and capped at RankSize.
 type Ranking struct {
 	scores []Score
 }
@@ -39,9 +37,9 @@ func (r *Ranking) findPosition(s *Score) (valid bool, pos int) {
 	return
 }
 
-// insertScore places s at pos, first dropping any lower-ranked score on the same
-// map (findPosition guarantees such a duplicate can only sit at or after pos), then
-// truncating back to RankSize when the insert overflows it.
+// insertScore places s at pos, dropping any lower-ranked score on the same map.
+// findPosition guarantees that duplicate can only sit at or after pos, so removing
+// it never shifts pos.
 func (r *Ranking) insertScore(pos int, s *Score) {
 	for j := pos; j < len(r.scores); j++ {
 		if r.scores[j].Beatmap.ID == s.Beatmap.ID {
@@ -75,8 +73,7 @@ func (r *Ranking) GetTotalPP() (res float64) {
 }
 
 // Scores returns an independent copy of the ranked scores, so a caller may read or
-// mutate the result without touching the ranking's backing store. The value
-// receiver copies only the slice header, so it stays cheap.
+// mutate the result without touching the ranking's backing store.
 func (r Ranking) Scores() Scores {
 	out := make(Scores, len(r.scores))
 	copy(out, r.scores)

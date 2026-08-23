@@ -147,9 +147,8 @@ func (p *RealtimePoller) setCursor(cursor string) {
 	p.mu.Unlock()
 }
 
-// seed fetches the newest page to adopt its cursor without emitting it, retrying
-// on error so streaming never falls back to replaying the whole newest page. It
-// returns false only when ctx is cancelled.
+// seed fetches the newest page to adopt its cursor without emitting it, retrying on
+// error. It returns false only when ctx is cancelled.
 func (p *RealtimePoller) seed(ctx context.Context) (string, bool) {
 	timer := time.NewTimer(0)
 	defer timer.Stop()

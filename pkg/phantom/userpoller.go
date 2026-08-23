@@ -28,7 +28,7 @@ type PollConfig struct {
 
 // UserPoller is a ScoreTracker that surfaces tracked users' new ranked scores by
 // polling the osu! API. Each tracked user runs its own poll loop, backing off
-// while idle. It keeps no ranking: accumulation is the consumer's job.
+// while idle. Accumulation is the consumer's job.
 type UserPoller struct {
 	fetch ScoreFetcher
 	cfg   PollConfig
