@@ -13,6 +13,7 @@ import (
 // gate dropped a score before any fetch.
 type fakeBeatmaps struct {
 	beatmap func(id int64) (player.Beatmap, player.BeatmapSet, error)
+	resolve func(*player.Score)
 	fetches int
 }
 
@@ -22,8 +23,13 @@ func (f *fakeBeatmaps) Beatmap(id int64) (player.Beatmap, player.BeatmapSet, err
 }
 
 // ResolvePP mirrors osu.GetPP's contract of trusting an already-reported pp, so
-// tests can assert the feed's pp survives.
-func (f *fakeBeatmaps) ResolvePP(*player.Score) {}
+// tests can assert the feed's pp survives. A nil resolve is the no-op default; a
+// test that exercises the compute path scripts one.
+func (f *fakeBeatmaps) ResolvePP(s *player.Score) {
+	if f.resolve != nil {
+		f.resolve(s)
+	}
+}
 
 // rankedBeatmap fills a ranked map so enrichment passes the status gate.
 func rankedBeatmap(id int64) (player.Beatmap, player.BeatmapSet, error) {
@@ -147,6 +153,74 @@ func TestRealtimeTracker_DropsScoreBeforeSince(t *testing.T) {
 	b.Emit(rankedScore(7)) // ended at t=100, before since=500
 
 	assertNoScore(t, tr.Scores())
+}
+
+func TestRealtimeTracker_ResolveTrustsFeedPP(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	beatmaps := &fakeBeatmaps{beatmap: rankedBeatmap}
+	tr := NewRealtimeTracker(ctx, NewBroadcaster(), beatmaps)
+
+	s := rankedScore(7) // feed pp 100
+	if !tr.Resolve(&s) {
+		t.Fatal("Resolve rejected a pp-carrying ranked score")
+	}
+	if beatmaps.fetches != 0 {
+		t.Fatalf("a positive feed pp still triggered %d fetches, want 0", beatmaps.fetches)
+	}
+}
+
+func TestRealtimeTracker_ResolveComputesMissingPP(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	beatmaps := &fakeBeatmaps{
+		beatmap: rankedBeatmap,
+		resolve: func(s *player.Score) { s.PP = 250 },
+	}
+	tr := NewRealtimeTracker(ctx, NewBroadcaster(), beatmaps)
+
+	s := rankedScore(7)
+	s.PP = 0 // feed omitted pp
+	if !tr.Resolve(&s) {
+		t.Fatal("Resolve rejected a ranked score once pp was computed")
+	}
+	if beatmaps.fetches != 1 {
+		t.Fatalf("a missing feed pp triggered %d fetches, want 1", beatmaps.fetches)
+	}
+	if s.PP != 250 {
+		t.Fatalf("computed pp not applied: got %v, want 250", s.PP)
+	}
+}
+
+func TestRealtimeTracker_ResolveRejectsWorthlessScore(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	// A ranked map whose play, once calculated, is still worth nothing.
+	beatmaps := &fakeBeatmaps{beatmap: rankedBeatmap, resolve: func(*player.Score) {}}
+	tr := NewRealtimeTracker(ctx, NewBroadcaster(), beatmaps)
+
+	s := rankedScore(7)
+	s.PP = 0
+	if tr.Resolve(&s) {
+		t.Fatal("Resolve accepted a score worth no pp after calculation")
+	}
+}
+
+func TestRealtimeTracker_ResolveRejectsUnrankedModsBeforeFetch(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	beatmaps := &fakeBeatmaps{beatmap: rankedBeatmap}
+	tr := NewRealtimeTracker(ctx, NewBroadcaster(), beatmaps)
+
+	s := rankedScore(7)
+	s.PP = 0
+	s.Mods = player.Mods{{Acronym: "RX"}}
+	if tr.Resolve(&s) {
+		t.Fatal("Resolve accepted an unranked-mod score")
+	}
+	if beatmaps.fetches != 0 {
+		t.Fatalf("an unranked-mod score triggered %d fetches, want 0", beatmaps.fetches)
+	}
 }
 
 func assertNoScore(t *testing.T, ch <-chan player.Score) {
