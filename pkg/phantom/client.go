@@ -19,7 +19,7 @@ type (
 	// NewScore contains information of a new score
 	NewScore struct {
 		Rank  int
-		Score player.Score
+		Score player.FullScore
 	}
 
 	// Client handles the tracking of a user's scores
@@ -84,7 +84,7 @@ func (c *Client) Restore(scores player.Scores) {
 	defer c.lock.Unlock()
 
 	for _, s := range scores {
-		if s.AwardsPP() {
+		if s.PP > 0 {
 			c.ranking.AddScore(s)
 		}
 		if s.EndedAt.After(c.LastUpdate) {
@@ -175,7 +175,7 @@ func (c *Client) GetTotalPP() float64 {
 // foldPage adds every score on the page newer than prev into the ranking. It
 // stops at the first score at or older than prev. pageAllNew reports whether the
 // whole page was newer than prev, meaning more new scores may sit on the next page.
-func (c *Client) foldPage(page player.Scores, prev time.Time) (pageAllNew bool) {
+func (c *Client) foldPage(page player.FullScores, prev time.Time) (pageAllNew bool) {
 	pageAllNew = true
 	var newScores []NewScore
 
@@ -186,13 +186,12 @@ func (c *Client) foldPage(page player.Scores, prev time.Time) (pageAllNew bool) 
 			break
 		}
 
-		if !score.AwardsPP() {
+		if score.PP <= 0 {
 			continue
 		}
 
-		c.osu.GetPP(&score)
 		c.Logger.Debug("Possible new score", "ID", score.ID, "BeatmapID", score.Beatmap.ID, "Title", score.BeatmapSet.Title, "PP", score.PP)
-		if rank, added := c.ranking.AddScore(score); added {
+		if rank, added := c.ranking.AddScore(score.Score); added {
 			c.Logger.Info("New score", "ID", score.ID, "BeatmapID", score.Beatmap.ID, "Title", score.BeatmapSet.Title, "PP", score.PP)
 			newScores = append(newScores, NewScore{Rank: rank, Score: score})
 		}

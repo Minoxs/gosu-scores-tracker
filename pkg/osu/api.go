@@ -139,7 +139,7 @@ func (c *Client) GetUserByName(token *GuestToken, username string) (*player.Prof
 // GetRecentScores fetches one page of a user's recent osu!standard scores,
 // newest first. limit is capped at 100 by the osu! API; offset pages past the
 // newest results.
-func (c *Client) GetRecentScores(token *GuestToken, userid, limit, offset int) player.Scores {
+func (c *Client) GetRecentScores(token *GuestToken, userid, limit, offset int) player.FullScores {
 	endpoint := fmt.Sprintf("users/%d/scores/recent/?mode=osu&limit=%d&offset=%d", userid, limit, offset)
 
 	req, _ := http.NewRequest(GET, APIv2URL(endpoint), nil)
@@ -153,7 +153,7 @@ func (c *Client) GetRecentScores(token *GuestToken, userid, limit, offset int) p
 	}
 	defer res.Body.Close()
 
-	scores := make(player.Scores, 0)
+	scores := make(player.FullScores, 0)
 	err = json.NewDecoder(res.Body).Decode(&scores)
 	if err != nil {
 		slog.Error("Error while decoding response", "Error", err)
@@ -198,7 +198,7 @@ func (c *Client) GetScores(token *GuestToken, ruleset, cursor string) (player.Sc
 	return page.Scores, page.CursorString, nil
 }
 
-func (c *Client) GetBeatmapScores(token *GuestToken, userID int, beatmapID int) player.Scores {
+func (c *Client) GetBeatmapScores(token *GuestToken, userID int, beatmapID int) player.FullScores {
 	endpoint := fmt.Sprintf("beatmaps/%d/scores/users/%d/all", beatmapID, userID)
 
 	req, _ := http.NewRequest(GET, APIv2URL(endpoint), nil)
@@ -213,7 +213,7 @@ func (c *Client) GetBeatmapScores(token *GuestToken, userID int, beatmapID int) 
 	defer res.Body.Close()
 
 	s := struct {
-		Scores player.Scores `json:"scores"`
+		Scores player.FullScores `json:"scores"`
 	}{}
 	err = json.NewDecoder(res.Body).Decode(&s)
 	if err != nil {

@@ -11,11 +11,18 @@ import (
 	"github.com/minoxs/osu-phantom/pkg/osu/player"
 )
 
-// ScoreFetcher returns a user's ranked scores set after since, each with pp
-// resolved, plus the newest score's time seen so the caller can advance its
-// watermark. It is the one osu!-facing dependency of UserPoller, injected so the
+// FullScoreProvider is a source of scores with their maps embedded. UserPoller is
+// one: unlike the lean realtime ScoreProvider, the user-scores endpoint returns
+// FullScore, so its stream carries the beatmap and beatmapset.
+type FullScoreProvider interface {
+	Scores() <-chan player.FullScore
+}
+
+// FullScoreFetcher returns a user's scores set after since, as the API returns them
+// with the map embedded, plus the newest score's time seen so the caller can advance
+// its watermark. It is the one osu!-facing dependency of UserPoller, injected so the
 // polling loop can be tested without the network.
-type ScoreFetcher func(userID int, since time.Time) (scores []player.Score, newest time.Time, err error)
+type FullScoreFetcher func(userID int, since time.Time) (scores player.FullScores, newest time.Time, err error)
 
 // PollConfig sets the per-user polling cadence. The osu! terms of use forbid
 // polling a user more than once a minute, so BaseInterval floors the cadence and
@@ -30,9 +37,9 @@ type PollConfig struct {
 // polling the osu! API. Each tracked user runs its own poll loop, backing off
 // while idle. Accumulation is the consumer's job.
 type UserPoller struct {
-	fetch ScoreFetcher
+	fetch FullScoreFetcher
 	cfg   PollConfig
-	out   chan player.Score
+	out   chan player.FullScore
 
 	// OnCheck, when set before the first Track, is called after every poll with
 	// the time of the poll and when the next is due, so a consumer can report how
@@ -50,7 +57,7 @@ type UserPoller struct {
 }
 
 // NewUserPoller builds a tracker driven by the given fetcher.
-func NewUserPoller(fetch ScoreFetcher, cfg PollConfig) *UserPoller {
+func NewUserPoller(fetch FullScoreFetcher, cfg PollConfig) *UserPoller {
 	if cfg.BaseInterval <= 0 {
 		cfg.BaseInterval = time.Minute
 	}
@@ -61,7 +68,7 @@ func NewUserPoller(fetch ScoreFetcher, cfg PollConfig) *UserPoller {
 	return &UserPoller{
 		fetch:   fetch,
 		cfg:     cfg,
-		out:     make(chan player.Score, DefaultSubBuffer),
+		out:     make(chan player.FullScore, DefaultSubBuffer),
 		ctx:     ctx,
 		cancel:  cancel,
 		tracked: make(map[int]context.CancelFunc),
@@ -101,8 +108,8 @@ func (t *UserPoller) Untrack(userID int) {
 	}
 }
 
-// Scores is the stream of tracked users' new scores.
-func (t *UserPoller) Scores() <-chan player.Score { return t.out }
+// Scores is the stream of tracked users' new scores, each with its map embedded.
+func (t *UserPoller) Scores() <-chan player.FullScore { return t.out }
 
 // Close stops every poll loop and closes the Scores channel once they have all
 // exited. The tracker cannot be reused afterwards.
@@ -170,7 +177,7 @@ func (t *UserPoller) loop(ctx context.Context, userID int, since time.Time) {
 
 // emit forwards a score, blocking until the consumer takes it so no score is
 // dropped. It bails out if the loop is cancelled while waiting.
-func (t *UserPoller) emit(ctx context.Context, s player.Score) bool {
+func (t *UserPoller) emit(ctx context.Context, s player.FullScore) bool {
 	select {
 	case t.out <- s:
 		return true
@@ -197,12 +204,12 @@ func jitter(d time.Duration, frac float64) time.Duration {
 	return d + time.Duration(rand.Float64()*frac*float64(d))
 }
 
-// osuScoreFetcher fetches a user's recent ranked scores through osu-phantom,
-// paging while a whole page is newer than since and resolving pp for each.
-func osuScoreFetcher(provider AuthProvider) ScoreFetcher {
+// osuScoreFetcher fetches a user's recent scores through osu-phantom, paging while
+// a whole page is newer than since. It forwards the crude scores the API returns.
+func osuScoreFetcher(provider AuthProvider) FullScoreFetcher {
 	client := osu.NewClient(0)
-	return func(userID int, since time.Time) ([]player.Score, time.Time, error) {
-		var out []player.Score
+	return func(userID int, since time.Time) (player.FullScores, time.Time, error) {
+		var out player.FullScores
 		var newest time.Time
 
 		for offset := 0; ; offset += recentScorePageSize {
@@ -221,10 +228,6 @@ func osuScoreFetcher(provider AuthProvider) ScoreFetcher {
 					allNew = false
 					break
 				}
-				if !s.AwardsPP() {
-					continue
-				}
-				client.GetPP(&s)
 				out = append(out, s)
 			}
 

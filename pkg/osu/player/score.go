@@ -60,10 +60,14 @@ type BeatmapSet struct {
 
 // Score is an osu! API v2 "solo_score": one play as osu! stores it under the
 // lazer submission pipeline. Requests must send a modern x-api-version to receive
-// this shape.
+// this shape. It is the lean form the global scores feed returns, carrying only a
+// beatmap_id and no embedded beatmap or beatmapset. Use FullScore where the API
+// embeds those, such as the user-scores endpoints.
 type Score struct {
 	ID         int64      `json:"id"`
 	UserID     int        `json:"user_id"`
+	BeatmapID  int64      `json:"beatmap_id"`
+	RulesetID  int        `json:"ruleset_id"`
 	EndedAt    time.Time  `json:"ended_at"`
 	Accuracy   float32    `json:"accuracy"`
 	Mods       Mods       `json:"mods"`
@@ -71,11 +75,20 @@ type Score struct {
 	MaxCombo   int        `json:"max_combo"`
 	Rank       string     `json:"rank"`
 	Passed     bool       `json:"passed"`
-	Statistics Statistics `json:"statistics"`
+	// Ranked is osu's beatmap-leaderboard-visibility flag. Notably it does not track
+	// whether the score gives pp, so it is not a pp signal.
+	Ranked bool `json:"ranked"`
+	// Processed is false until osu finishes server-side processing, most notably the
+	// pp calculation, so a false value means PP is not yet authoritative.
+	Processed  bool       `json:"processed"`
 	PP         float64    `json:"pp"`
-	Ranked     bool       `json:"ranked"`
-	RulesetID  int        `json:"ruleset_id"`
-	BeatmapID  int64      `json:"beatmap_id"`
+	Statistics Statistics `json:"statistics"`
+}
+
+// FullScore is a Score as the endpoints that embed the map return it: a user's
+// score list or a beatmap's score list carry both the beatmap and its set inline.
+type FullScore struct {
+	Score
 	Beatmap    Beatmap    `json:"beatmap"`
 	BeatmapSet BeatmapSet `json:"beatmapset"`
 }
@@ -97,17 +110,11 @@ func (s Score) Mode() string {
 	}
 }
 
-// AwardsPP reports whether the score earns pp: its mods keep it ranked, and either
-// the feed marked it ranked or the beatmap status awards pp. The Ranked term lets a
-// lean feed score answer before its beatmap is fetched.
-func (s Score) AwardsPP() bool {
-	if !s.Mods.IsRanked() {
-		return false
-	}
-	return s.Ranked || s.Beatmap.Status.AwardsPP()
-}
-
 type Scores []Score
+
+// FullScores is a list of scores with their maps embedded, as the user-scores and
+// beatmap-scores endpoints return.
+type FullScores []FullScore
 
 func (s Scores) String() (res string) {
 	res = ""
@@ -124,11 +131,9 @@ func (s Scores) String() (res string) {
 
 func (s *Score) String() string {
 	return fmt.Sprintf(
-		"{ ID=%d : BeatmapID=%d : Title=%s : Diff=%s : Mode=%s : Mods=%v : Score=%d : PP=%.0f : MaxCombo=%d : Acc=%.2f : %s }",
+		"{ ID=%d : BeatmapID=%d : Mode=%s : Mods=%v : Score=%d : PP=%.0f : MaxCombo=%d : Acc=%.2f : %s }",
 		s.ID,
 		s.BeatmapID,
-		s.BeatmapSet.Title,
-		s.Beatmap.Version,
 		s.Mode(),
 		s.Mods.Acronyms(),
 		s.TotalScore,

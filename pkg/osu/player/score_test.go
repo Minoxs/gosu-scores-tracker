@@ -6,12 +6,14 @@ import (
 	"time"
 )
 
-// sample is a trimmed osu! API v2 solo_score object, keeping the fields Score
-// decodes and their real shapes (mods as objects, lazer statistics, ended_at,
-// ruleset_id, nested beatmap/beatmapset).
+// sample is a trimmed osu! API v2 solo_score object from an endpoint that embeds
+// the map, so it decodes into a FullScore. It keeps the fields the types decode and
+// their real shapes (mods as objects, lazer statistics, ended_at, ruleset_id,
+// processed, nested beatmap/beatmapset).
 const sample = `{
   "id": 7027024157,
   "user_id": 30692023,
+  "beatmap_id": 2335023,
   "ended_at": "2026-07-07T03:30:08Z",
   "accuracy": 0.91954,
   "mods": [{"acronym": "HD"}, {"acronym": "DT"}],
@@ -19,6 +21,8 @@ const sample = `{
   "max_combo": 95,
   "rank": "A",
   "passed": true,
+  "ranked": true,
+  "processed": true,
   "pp": 24.5157,
   "ruleset_id": 0,
   "statistics": {"great": 305, "ok": 30, "meh": 2, "miss": 13, "ignore_hit": 1},
@@ -26,14 +30,14 @@ const sample = `{
   "beatmapset": {"id": 55, "title": "Song", "artist": "Artist", "creator": "Mapper"}
 }`
 
-func TestScoreDecode(t *testing.T) {
-	var s Score
+func TestFullScoreDecode(t *testing.T) {
+	var s FullScore
 	if err := json.Unmarshal([]byte(sample), &s); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
 
-	if s.ID != 7027024157 || s.UserID != 30692023 {
-		t.Errorf("id/user = %d/%d", s.ID, s.UserID)
+	if s.ID != 7027024157 || s.UserID != 30692023 || s.BeatmapID != 2335023 {
+		t.Errorf("id/user/beatmap = %d/%d/%d", s.ID, s.UserID, s.BeatmapID)
 	}
 	if want := time.Date(2026, 7, 7, 3, 30, 8, 0, time.UTC); !s.EndedAt.Equal(want) {
 		t.Errorf("EndedAt = %v, want %v", s.EndedAt, want)
@@ -44,80 +48,17 @@ func TestScoreDecode(t *testing.T) {
 	if s.Statistics.Great != 305 || s.Statistics.Ok != 30 || s.Statistics.Meh != 2 || s.Statistics.Miss != 13 {
 		t.Errorf("statistics = %+v, want 305/30/2/13", s.Statistics)
 	}
-	if s.TotalScore != 700980 {
-		t.Errorf("TotalScore = %d, want 700980", s.TotalScore)
+	if s.TotalScore != 700980 || s.Mode() != "osu" {
+		t.Errorf("total/mode = %d/%q", s.TotalScore, s.Mode())
 	}
-	if s.Mode() != "osu" {
-		t.Errorf("Mode() = %q, want osu (from ruleset_id 0)", s.Mode())
+	if s.PP != 24.5157 || !s.Passed || !s.Ranked || !s.Processed {
+		t.Errorf("pp/passed/ranked/processed = %v/%v/%v/%v", s.PP, s.Passed, s.Ranked, s.Processed)
 	}
-	if s.PP != 24.5157 || !s.Passed {
-		t.Errorf("pp/passed = %v/%v", s.PP, s.Passed)
+	if s.Beatmap.ID != 2335023 || s.Beatmap.Status != StatusRanked {
+		t.Errorf("beatmap = %d/%q", s.Beatmap.ID, s.Beatmap.Status)
 	}
-	if s.Beatmap.Status != StatusRanked || !s.AwardsPP() {
-		t.Errorf("Beatmap.Status = %q, AwardsPP = %v", s.Beatmap.Status, s.AwardsPP())
-	}
-	if s.Beatmap.ID != 2335023 || s.BeatmapSet.Title != "Song" || s.BeatmapSet.Creator != "Mapper" {
-		t.Errorf("beatmap/set = %d/%q/%q", s.Beatmap.ID, s.BeatmapSet.Title, s.BeatmapSet.Creator)
-	}
-}
-
-func TestScore_AwardsPP(t *testing.T) {
-	cases := map[BeatmapStatus]bool{
-		"ranked":    true,
-		"approved":  true,
-		"loved":     false,
-		"qualified": false,
-		"pending":   false,
-		"wip":       false,
-		"graveyard": false,
-		"":          false,
-	}
-
-	for status, want := range cases {
-		score := Score{Beatmap: Beatmap{Status: status}}
-		if got := score.AwardsPP(); got != want {
-			t.Errorf("status %q: AwardsPP() = %v, want %v", status, got, want)
-		}
-	}
-}
-
-// A lean feed score carries the ranked flag but no beatmap, so AwardsPP must honor
-// the flag before enrichment fills the status.
-func TestScore_AwardsPP_LeanRankedFlag(t *testing.T) {
-	lean := Score{Ranked: true}
-	if !lean.AwardsPP() {
-		t.Error("AwardsPP() = false for a ranked-flagged score with no beatmap, want true")
-	}
-}
-
-// An unranked mod disqualifies pp even on an otherwise pp-awarding ranked map.
-func TestScore_AwardsPP_UnrankedMods(t *testing.T) {
-	for _, acronym := range []string{"RX", "AP", "DA", "DC", "AS"} {
-		score := Score{Ranked: true, Beatmap: Beatmap{Status: StatusRanked}, Mods: Mods{{Acronym: acronym}}}
-		if score.AwardsPP() {
-			t.Errorf("AwardsPP() = true with unranked mod %q, want false", acronym)
-		}
-	}
-
-	ranked := Score{Ranked: true, Beatmap: Beatmap{Status: StatusRanked}, Mods: Mods{{Acronym: "HD"}, {Acronym: "SO"}}}
-	if !ranked.AwardsPP() {
-		t.Error("AwardsPP() = false with ranked mods HD,SO, want true")
-	}
-}
-
-// A ranked-acronym mod earns pp at default settings but not once customized, since
-// osu! unranks a tweaked mod while leaving its acronym unchanged.
-func TestScore_AwardsPP_CustomizedMod(t *testing.T) {
-	stock := Score{Ranked: true, Beatmap: Beatmap{Status: StatusRanked}, Mods: Mods{{Acronym: "DT"}}}
-	if !stock.AwardsPP() {
-		t.Error("AwardsPP() = false for stock Double Time, want true")
-	}
-
-	tuned := Score{Ranked: true, Beatmap: Beatmap{Status: StatusRanked}, Mods: Mods{
-		{Acronym: "DT", Settings: map[string]any{"speed_change": 1.4}},
-	}}
-	if tuned.AwardsPP() {
-		t.Error("AwardsPP() = true for Double Time at a non-default speed, want false")
+	if s.BeatmapSet.Title != "Song" || s.BeatmapSet.Creator != "Mapper" {
+		t.Errorf("set = %q/%q", s.BeatmapSet.Title, s.BeatmapSet.Creator)
 	}
 }
 
