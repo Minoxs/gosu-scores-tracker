@@ -126,7 +126,7 @@ func (s *Score) String() string {
 	return fmt.Sprintf(
 		"{ ID=%d : BeatmapID=%d : Title=%s : Diff=%s : Mode=%s : Mods=%v : Score=%d : PP=%.0f : MaxCombo=%d : Acc=%.2f : %s }",
 		s.ID,
-		s.Beatmap.ID,
+		s.BeatmapID,
 		s.BeatmapSet.Title,
 		s.Beatmap.Version,
 		s.Mode(),
