@@ -25,7 +25,7 @@ func (r *Ranking) String() string {
 func (r *Ranking) findPosition(s *Score) (valid bool, pos int) {
 	for pos = 0; pos < len(r.scores); pos++ {
 		// Already added, or a better score on the same map already exists.
-		if s.ID == r.scores[pos].ID || (s.Beatmap.ID == r.scores[pos].Beatmap.ID && s.PP <= r.scores[pos].PP) {
+		if s.ID == r.scores[pos].ID || (s.BeatmapID == r.scores[pos].BeatmapID && s.PP <= r.scores[pos].PP) {
 			return
 		}
 		// Better score.
@@ -42,7 +42,7 @@ func (r *Ranking) findPosition(s *Score) (valid bool, pos int) {
 // it never shifts pos.
 func (r *Ranking) insertScore(pos int, s *Score) {
 	for j := pos; j < len(r.scores); j++ {
-		if r.scores[j].Beatmap.ID == s.Beatmap.ID {
+		if r.scores[j].BeatmapID == s.BeatmapID {
 			r.scores = slices.Delete(r.scores, j, j+1)
 			break
 		}
@@ -63,6 +63,18 @@ func (r *Ranking) AddScore(s Score) (rank int, added bool) {
 		r.insertScore(pos, &s)
 	}
 	return pos + 1, valid
+}
+
+// RemoveScore drops the score with the given id, so a consumer can retract a play
+// from the window and let the rest re-rank. It reports whether a score was removed.
+func (r *Ranking) RemoveScore(id int64) (removed bool) {
+	for i := range r.scores {
+		if r.scores[i].ID == id {
+			r.scores = slices.Delete(r.scores, i, i+1)
+			return true
+		}
+	}
+	return false
 }
 
 func (r *Ranking) GetTotalPP() (res float64) {
