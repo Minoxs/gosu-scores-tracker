@@ -2,9 +2,9 @@
 
 A Go library that tracks a user's recent osu! scores and builds a fresh ranking from only the scores they set after tracking begins. Each tracked user is a `phantom.Client` that polls the osu! API for new plays and keeps a weighted top-100: scores are deduplicated per beatmap keeping the best, and total pp uses osu!'s weighting of 100%, 95%, 90.25% and so on down the list.
 
-## PP calculation
+## PP
 
-Each score's pp is taken from the osu! API when present, otherwise computed locally by [crosu-pp](https://github.com/Minoxs/crosu-pp), a shared-library wrapper around [rosu-pp](https://github.com/MaxOhn/rosu-pp). The local path is cgo, so builds need cgo enabled and the `crosu_pp` shared library discoverable at runtime (on `PATH` on Windows).
+Each score's pp is whatever the osu! API returns; the library computes none. The API omits pp for a score that earns none (unranked mods, an unranked map, or one osu! has not finished processing), and that decodes as zero. A zero-pp score contributes nothing to the ranking; any further policy on it is the caller's.
 
 ## Rate limiting
 
@@ -16,9 +16,9 @@ Authorize with an OAuth client-credentials token through `osu.NewClient(prio).Ge
 
 ## Building
 
+The module is pure Go, with no cgo and no native dependency.
+
 ```bash
-CGO_ENABLED=1 go build ./...
+go build ./...
 go test ./...
 ```
-
-Tests that exercise pp calculation need the `crosu_pp` shared library on `PATH`. See [crosu-pp](https://github.com/Minoxs/crosu-pp) for building it.
