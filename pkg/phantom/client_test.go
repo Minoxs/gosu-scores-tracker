@@ -1,43 +1,26 @@
 package phantom
 
 import (
-	"github.com/minoxs/osu-phantom/pkg/osu/player"
 	"log/slog"
 	"testing"
 	"time"
+
+	"github.com/minoxs/osu-phantom/pkg/osu/player"
 )
 
-var testScores = player.Scores{
-	{
-		ID:        1,
-		PP:        100,
-		EndedAt: time.Now(),
-		Beatmap:   player.Beatmap{ID: 1, Status: "ranked"},
-	},
-	{
-		ID:        2,
-		PP:        110,
-		EndedAt: time.Now(),
-		Beatmap:   player.Beatmap{ID: 1, Status: "ranked"},
-	},
-	{
-		ID:        3,
-		PP:        90,
-		EndedAt: time.Now(),
-		Beatmap:   player.Beatmap{ID: 1, Status: "approved"},
-	},
-	{
-		ID:        4,
-		PP:        200,
-		EndedAt: time.Now(),
-		Beatmap:   player.Beatmap{ID: 2, Status: "ranked"},
-	},
-	{
-		ID:        5,
-		PP:        300,
-		EndedAt: time.Now(),
-		Beatmap:   player.Beatmap{ID: 3, Status: "approved"},
-	},
+func full(id int64, beatmapID int64, pp float64) player.FullScore {
+	return player.FullScore{
+		Score:   player.Score{ID: id, BeatmapID: beatmapID, PP: pp, EndedAt: time.Now()},
+		Beatmap: player.Beatmap{ID: beatmapID},
+	}
+}
+
+var testScores = player.FullScores{
+	full(1, 1, 100),
+	full(2, 1, 110),
+	full(3, 1, 90),
+	full(4, 2, 200),
+	full(5, 3, 300),
 }
 
 func TestClient_FoldPage(t *testing.T) {
@@ -72,13 +55,14 @@ func TestClient_Ranking(t *testing.T) {
 	}
 }
 
-func TestClient_FoldPageSkipsUnranked(t *testing.T) {
-	var mixed = player.Scores{
-		{ID: 10, PP: 100, EndedAt: time.Now(), Beatmap: player.Beatmap{ID: 10, Status: "ranked"}},
-		{ID: 11, PP: 120, EndedAt: time.Now(), Beatmap: player.Beatmap{ID: 11, Status: "loved"}},
-		{ID: 12, PP: 130, EndedAt: time.Now(), Beatmap: player.Beatmap{ID: 12, Status: "graveyard"}},
-		{ID: 13, PP: 140, EndedAt: time.Now(), Beatmap: player.Beatmap{ID: 13, Status: "approved"}},
-		{ID: 14, PP: 150, EndedAt: time.Now(), Beatmap: player.Beatmap{ID: 14, Status: "qualified"}},
+// A score with no pp is not ranked.
+func TestClient_FoldPageSkipsNoPP(t *testing.T) {
+	var mixed = player.FullScores{
+		full(10, 10, 100),
+		full(11, 11, 0),
+		full(12, 12, 0),
+		full(13, 13, 140),
+		full(14, 14, 0),
 	}
 
 	var counted = make(chan int, 1)
@@ -89,17 +73,17 @@ func TestClient_FoldPageSkipsUnranked(t *testing.T) {
 
 	test.foldPage(mixed, time.Time{})
 	if got := <-counted; got != 2 {
-		t.Fatalf("counted %d ranked scores, want 2", got)
+		t.Fatalf("counted %d scores with pp, want 2", got)
 	}
 	if got := test.Ranking().Count(); got != 2 {
 		t.Fatalf("ranking holds %d scores, want 2", got)
 	}
 }
 
-func TestClient_RestoreSkipsUnranked(t *testing.T) {
+func TestClient_RestoreSkipsNoPP(t *testing.T) {
 	var mixed = player.Scores{
-		{ID: 20, PP: 100, EndedAt: time.Now(), Beatmap: player.Beatmap{ID: 20, Status: "ranked"}},
-		{ID: 21, PP: 120, EndedAt: time.Now(), Beatmap: player.Beatmap{ID: 21, Status: "loved"}},
+		{ID: 20, BeatmapID: 20, PP: 100, EndedAt: time.Now()},
+		{ID: 21, BeatmapID: 21, PP: 0, EndedAt: time.Now()},
 	}
 
 	var test = &Client{Logger: slog.Default()}

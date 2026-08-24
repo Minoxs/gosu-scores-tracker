@@ -19,7 +19,7 @@ type fakeFetcher struct {
 	emit   bool
 }
 
-func (f *fakeFetcher) fetch(userID int, since time.Time) ([]player.Score, time.Time, error) {
+func (f *fakeFetcher) fetch(userID int, since time.Time) (player.FullScores, time.Time, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.sinces = append(f.sinces, since)
@@ -28,7 +28,19 @@ func (f *fakeFetcher) fetch(userID int, since time.Time) ([]player.Score, time.T
 	}
 	f.nextID++
 	at := f.base.Add(time.Duration(f.nextID) * time.Second)
-	return []player.Score{{ID: f.nextID, UserID: userID, EndedAt: at}}, at, nil
+	return player.FullScores{{Score: player.Score{ID: f.nextID, UserID: userID, EndedAt: at}}}, at, nil
+}
+
+// recvFull reads one full score off the poller stream, failing on timeout.
+func recvFull(t *testing.T, ch <-chan player.FullScore) player.FullScore {
+	t.Helper()
+	select {
+	case s := <-ch:
+		return s
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for score")
+		return player.FullScore{}
+	}
 }
 
 func (f *fakeFetcher) seenSinces() []time.Time {
@@ -45,7 +57,7 @@ func fastConfig() PollConfig {
 
 // assertQuiet drains anything in flight for a grace period, then fails if a
 // further score arrives, proving polling has stopped.
-func assertQuiet(t *testing.T, ch <-chan player.Score) {
+func assertQuiet(t *testing.T, ch <-chan player.FullScore) {
 	t.Helper()
 	grace := time.After(50 * time.Millisecond)
 	for draining := true; draining; {
@@ -71,7 +83,7 @@ func TestUserPoller_EmitsScores(t *testing.T) {
 
 	tr.Track(7, time.Now().Add(-time.Hour))
 
-	if got := recv(t, tr.Scores()); got.UserID != 7 {
+	if got := recvFull(t, tr.Scores()); got.UserID != 7 {
 		t.Fatalf("emitted score for user %d, want 7", got.UserID)
 	}
 }
@@ -81,8 +93,8 @@ func TestUserPoller_AdvancesWatermark(t *testing.T) {
 	tr := NewUserPoller(f.fetch, fastConfig())
 
 	tr.Track(7, time.Now().Add(-time.Hour))
-	recv(t, tr.Scores())
-	recv(t, tr.Scores())
+	recvFull(t, tr.Scores())
+	recvFull(t, tr.Scores())
 	tr.Close()
 
 	sinces := f.seenSinces()
@@ -100,7 +112,7 @@ func TestUserPoller_Untrack(t *testing.T) {
 	defer tr.Close()
 
 	tr.Track(7, time.Now().Add(-time.Hour))
-	recv(t, tr.Scores())
+	recvFull(t, tr.Scores())
 	tr.Untrack(7)
 
 	assertQuiet(t, tr.Scores())
@@ -114,7 +126,7 @@ func TestUserPoller_TrackIsIdempotent(t *testing.T) {
 	since := time.Now().Add(-time.Hour)
 	tr.Track(7, since)
 	tr.Track(7, since) // duplicate must not start a second loop
-	recv(t, tr.Scores())
+	recvFull(t, tr.Scores())
 	tr.Untrack(7) // a single untrack stops all polling of user 7
 
 	assertQuiet(t, tr.Scores())

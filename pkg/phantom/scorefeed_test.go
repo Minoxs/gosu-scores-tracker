@@ -23,6 +23,16 @@ func recv(t *testing.T, ch <-chan player.Score) player.Score {
 	}
 }
 
+// assertNoScore fails if any score arrives within a short grace period.
+func assertNoScore(t *testing.T, ch <-chan player.Score) {
+	t.Helper()
+	select {
+	case s := <-ch:
+		t.Fatalf("unexpected score %d", s.ID)
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
 func TestBroadcaster_FanOut(t *testing.T) {
 	b := NewBroadcaster()
 	a := b.Subscribe()

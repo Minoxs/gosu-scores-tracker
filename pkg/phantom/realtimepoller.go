@@ -45,9 +45,8 @@ const (
 // done.
 //
 // The scores it emits are lean: osu!'s global feed omits the beatmap, sending only
-// a flat beatmap_id, so Beatmap and BeatmapSet are zero on emitted scores and only
-// Score.BeatmapID is set. Filling them is a consumer's concern; RealtimeTracker does
-// it for tracked users.
+// a flat beatmap_id, so an emitted Score carries only BeatmapID. Filling in the
+// beatmap is a consumer's concern.
 type RealtimePoller struct {
 	*Broadcaster
 	fetch    ScoresFetcher
