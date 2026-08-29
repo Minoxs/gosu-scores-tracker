@@ -32,7 +32,7 @@ type Beatmap struct {
 	Mode          string        `json:"mode"`
 	MaxCombo      int           `json:"max_combo"`
 	TotalLength   int           `json:"total_length"`
-	OD            int           `json:"od"`
+	OD            float32       `json:"accuracy"`
 	Ar            float32       `json:"ar"`
 	CountCircles  int           `json:"count_circles"`
 	CountSliders  int           `json:"count_sliders"`
@@ -56,6 +56,14 @@ type BeatmapSet struct {
 	Artist  string `json:"artist"`
 	Creator string `json:"creator"`
 	Covers  Covers `json:"covers"`
+}
+
+// FullBeatmap is a beatmap with its owning set embedded, as the single-beatmap and
+// bulk-beatmaps endpoints return it: the map for its status and difficulty, the set
+// for its title, artist, and cover art.
+type FullBeatmap struct {
+	Beatmap
+	BeatmapSet BeatmapSet `json:"beatmapset"`
 }
 
 // Score is an osu! API v2 "solo_score": one play as osu! stores it under the
