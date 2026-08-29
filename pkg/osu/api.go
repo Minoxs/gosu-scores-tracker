@@ -10,7 +10,27 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"strconv"
 )
+
+// maxBulkIDs is the id ceiling osu! enforces on its bulk users and beatmaps
+// endpoints. A request over it is rejected before any call is made.
+const maxBulkIDs = 50
+
+// ErrTooManyIDs is returned by the bulk fetches when more ids are passed than osu!
+// accepts in one request.
+var ErrTooManyIDs = fmt.Errorf("at most %d ids per bulk request", maxBulkIDs)
+
+// bulkIDsURL builds an endpoint that repeats the ids[] query parameter, the form
+// osu!'s bulk users and beatmaps endpoints read a list of ids from.
+func bulkIDsURL(endpoint string, ids []int64) string {
+	q := url.Values{}
+	for _, id := range ids {
+		q.Add("ids[]", strconv.FormatInt(id, 10))
+	}
+	return APIv2URL(endpoint + "?" + q.Encode())
+}
 
 type Credentials struct {
 	ClientID     int
@@ -243,14 +263,101 @@ func (c *Client) GetBeatmap(token *GuestToken, id int64) (player.Beatmap, player
 		return player.Beatmap{}, player.BeatmapSet{}, errors.New("status_code=" + res.Status)
 	}
 
-	body := struct {
-		player.Beatmap
-		BeatmapSet player.BeatmapSet `json:"beatmapset"`
-	}{}
+	body := player.FullBeatmap{}
 	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
 		return player.Beatmap{}, player.BeatmapSet{}, err
 	}
 	return body.Beatmap, body.BeatmapSet, nil
+}
+
+// GetUsers fetches osu!standard profiles for many user ids in one request. It
+// returns ErrTooManyIDs when more than maxBulkIDs ids are passed, and nil for an
+// empty list without calling the API. osu! returns only the ids it finds, so the
+// result may be shorter than ids and in any order; callers key it by profile id.
+//
+// The bulk endpoint reports ranking stats per ruleset, so the osu! stats are folded
+// onto Statistics. It carries less than the single-user endpoint: it omits country
+// rank entirely, so Statistics.CountryRank and Rank stay nil and a caller that needs
+// country rank must fetch that user singly.
+func (c *Client) GetUsers(token *GuestToken, ids []int64) ([]*player.Profile, error) {
+	if len(ids) > maxBulkIDs {
+		return nil, ErrTooManyIDs
+	}
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	req, _ := http.NewRequest(GET, bulkIDsURL("users", ids), nil)
+	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
+	req.Header.Add(apiVersionHeader, APIVersion)
+
+	res, err := c.http.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != 200 {
+		return nil, errors.New("status_code=" + res.Status)
+	}
+
+	page := struct {
+		Users []struct {
+			player.Profile
+			StatisticsRulesets struct {
+				Osu player.RankStatistics `json:"osu"`
+			} `json:"statistics_rulesets"`
+		} `json:"users"`
+	}{}
+	if err := json.NewDecoder(res.Body).Decode(&page); err != nil {
+		return nil, err
+	}
+
+	profiles := make([]*player.Profile, 0, len(page.Users))
+	for i := range page.Users {
+		p := page.Users[i].Profile
+		if p.Statistics == (player.RankStatistics{}) {
+			p.Statistics = page.Users[i].StatisticsRulesets.Osu
+		}
+		profiles = append(profiles, &p)
+	}
+	return profiles, nil
+}
+
+// GetBeatmaps fetches beatmap metadata for many ids in one request, each with its
+// owning set embedded. It returns ErrTooManyIDs when more than maxBulkIDs ids are
+// passed, and nil for an empty list without calling the API. osu! returns only the
+// ids it finds, so the result may be shorter than ids and in any order; callers key
+// it by beatmap id.
+func (c *Client) GetBeatmaps(token *GuestToken, ids []int64) ([]player.FullBeatmap, error) {
+	if len(ids) > maxBulkIDs {
+		return nil, ErrTooManyIDs
+	}
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	req, _ := http.NewRequest(GET, bulkIDsURL("beatmaps", ids), nil)
+	req.Header.Add(AUTH, createHeader(token.TokenType, token.AccessToken))
+	req.Header.Add(apiVersionHeader, APIVersion)
+
+	res, err := c.http.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != 200 {
+		return nil, errors.New("status_code=" + res.Status)
+	}
+
+	page := struct {
+		Beatmaps []player.FullBeatmap `json:"beatmaps"`
+	}{}
+	if err := json.NewDecoder(res.Body).Decode(&page); err != nil {
+		return nil, err
+	}
+	return page.Beatmaps, nil
 }
 
 func (c *Client) DownloadBeatmap(id int64) (buf []byte, err error) {

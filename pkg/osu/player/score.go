@@ -58,6 +58,14 @@ type BeatmapSet struct {
 	Covers  Covers `json:"covers"`
 }
 
+// FullBeatmap is a beatmap with its owning set embedded, as the single-beatmap and
+// bulk-beatmaps endpoints return it: the map for its status and difficulty, the set
+// for its title, artist, and cover art.
+type FullBeatmap struct {
+	Beatmap
+	BeatmapSet BeatmapSet `json:"beatmapset"`
+}
+
 // Score is an osu! API v2 "solo_score": one play as osu! stores it under the
 // lazer submission pipeline. Requests must send a modern x-api-version to receive
 // this shape. It is the lean form the global scores feed returns, carrying only a

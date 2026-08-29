@@ -2,6 +2,24 @@ package player
 
 import "time"
 
+// Ranks is osu!'s nested rank block, carrying the country rank the flat
+// country_rank field duplicates on some responses.
+type Ranks struct {
+	Country *int `json:"country"`
+}
+
+// RankStatistics is a user's osu!standard ranking summary. The single-user endpoint
+// returns it under statistics; the bulk users endpoint returns it per ruleset under
+// statistics_rulesets, so it is named for reuse across both.
+type RankStatistics struct {
+	PP          float64 `json:"pp"`
+	HitAccuracy float64 `json:"hit_accuracy"`
+	PlayCount   int     `json:"play_count"`
+	GlobalRank  *int    `json:"global_rank"`
+	CountryRank *int    `json:"country_rank"`
+	Rank        Ranks   `json:"rank"`
+}
+
 // Profile is a user's public osu! profile as returned by the users endpoint.
 type Profile struct {
 	ID          int64     `json:"id"`
@@ -22,16 +40,7 @@ type Profile struct {
 		URL string `json:"url"`
 	} `json:"cover"`
 
-	Statistics struct {
-		PP          float64 `json:"pp"`
-		HitAccuracy float64 `json:"hit_accuracy"`
-		PlayCount   int     `json:"play_count"`
-		GlobalRank  *int    `json:"global_rank"`
-		CountryRank *int    `json:"country_rank"`
-		Rank        struct {
-			Country *int `json:"country"`
-		} `json:"rank"`
-	} `json:"statistics"`
+	Statistics RankStatistics `json:"statistics"`
 }
 
 // Cover image URL, preferring the nested cover object the API populates.
