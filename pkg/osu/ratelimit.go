@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"context"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -12,6 +13,14 @@ import (
 // requests per minute. Every request this package makes passes through the pacer
 // so the whole process, across all callers, stays under it.
 const defaultRequestsPerMinute = 60
+
+// osu! counts requests per OAuth client and its window outlives a process restart, so a
+// redeploy can 429 despite the pacer. These bound the wait-and-retry that absorbs it.
+const (
+	maxRateLimitRetries = 4
+	defaultRetryAfter   = 2 * time.Second
+	maxRetryAfter       = time.Minute
+)
 
 // Priority orders requests at the shared pacer: when several wait at once, a higher
 // value is granted first, and ties break by arrival order. This package only orders
@@ -129,11 +138,67 @@ type throttledTransport struct {
 	prio  Priority
 }
 
+// RoundTrip paces each attempt and, on a 429, waits out the limit and retries up to
+// maxRateLimitRetries times. Each attempt reserves its own pacer slot so retries do not
+// burst. An unrewindable body or a persistent 429 is returned as-is.
 func (t *throttledTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if err := t.pacer.reserve(req.Context(), t.prio); err != nil {
-		return nil, err
+	for attempt := 0; ; attempt++ {
+		if err := t.pacer.reserve(req.Context(), t.prio); err != nil {
+			return nil, err
+		}
+		res, err := t.base.RoundTrip(req)
+		if err != nil {
+			return nil, err
+		}
+		if res.StatusCode != http.StatusTooManyRequests || attempt >= maxRateLimitRetries || !rewind(req) {
+			return res, nil
+		}
+		wait := retryAfter(res.Header, defaultRetryAfter)
+		res.Body.Close()
+		select {
+		case <-time.After(wait):
+		case <-req.Context().Done():
+			return nil, req.Context().Err()
+		}
 	}
-	return t.base.RoundTrip(req)
+}
+
+// rewind resets a request body so it can be sent again, reporting whether the request is
+// safe to retry. A bodyless request always is; one with a body needs GetBody.
+func rewind(req *http.Request) bool {
+	if req.Body == nil || req.Body == http.NoBody {
+		return true
+	}
+	if req.GetBody == nil {
+		return false
+	}
+	body, err := req.GetBody()
+	if err != nil {
+		return false
+	}
+	req.Body = body
+	return true
+}
+
+// retryAfter reads the Retry-After header as delta seconds or an HTTP date, falling back
+// to def when absent or unparseable and capping at maxRetryAfter.
+func retryAfter(h http.Header, def time.Duration) time.Duration {
+	v := h.Get("Retry-After")
+	if v == "" {
+		return def
+	}
+	wait := def
+	if secs, err := strconv.Atoi(v); err == nil && secs >= 0 {
+		wait = time.Duration(secs) * time.Second
+	} else if when, err := http.ParseTime(v); err == nil {
+		if d := time.Until(when); d > 0 {
+			wait = d
+		}
+	}
+	if wait > maxRetryAfter {
+		return maxRetryAfter
+	}
+	return wait
 }
 
 // globalPacer is the process-wide pacer every Client reserves on, so the rate ceiling
