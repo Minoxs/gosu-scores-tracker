@@ -32,7 +32,7 @@ type Beatmap struct {
 	Mode          string        `json:"mode"`
 	MaxCombo      int           `json:"max_combo"`
 	TotalLength   int           `json:"total_length"`
-	OD            int           `json:"od"`
+	OD            float32       `json:"accuracy"`
 	Ar            float32       `json:"ar"`
 	CountCircles  int           `json:"count_circles"`
 	CountSliders  int           `json:"count_sliders"`
