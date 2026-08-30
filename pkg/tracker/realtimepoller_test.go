@@ -1,4 +1,4 @@
-package phantom
+package tracker
 
 import (
 	"context"
@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/minoxs/osu-phantom/pkg/osu/player"
+	"github.com/minoxs/gosu-api/pkg/gosu"
 )
 
 type fetchResult struct {
-	scores player.Scores
+	scores gosu.Scores
 	cursor string
 	err    error
 }
@@ -27,7 +27,7 @@ type scriptedFetcher struct {
 	cursors []string
 }
 
-func (s *scriptedFetcher) fetch(cursor string) (player.Scores, string, error) {
+func (s *scriptedFetcher) fetch(cursor string) (gosu.Scores, string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.cursors = append(s.cursors, cursor)
@@ -51,8 +51,8 @@ func (s *scriptedFetcher) seenCursors() []string {
 
 func TestRealtimePoller_SeedsCursorWithoutEmittingNewestPage(t *testing.T) {
 	sf := &scriptedFetcher{steps: []fetchResult{
-		{scores: player.Scores{{ID: 999}}, cursor: "c0"}, // seed page, must not emit
-		{scores: player.Scores{{ID: 1}}, cursor: "c1"},   // first streamed page
+		{scores: gosu.Scores{{ID: 999}}, cursor: "c0"}, // seed page, must not emit
+		{scores: gosu.Scores{{ID: 1}}, cursor: "c1"},   // first streamed page
 	}}
 	p := NewRealtimePoller(sf.fetch, time.Millisecond)
 	sub := p.Subscribe()
@@ -74,7 +74,7 @@ func TestRealtimePoller_SeedsCursorWithoutEmittingNewestPage(t *testing.T) {
 
 func TestRealtimePoller_ResumeStreamsFromCursorAndAdvances(t *testing.T) {
 	sf := &scriptedFetcher{steps: []fetchResult{
-		{scores: player.Scores{{ID: 7}}, cursor: "c1"}, // first streamed page from the resumed cursor
+		{scores: gosu.Scores{{ID: 7}}, cursor: "c1"}, // first streamed page from the resumed cursor
 	}}
 	p := NewRealtimePoller(sf.fetch, time.Millisecond)
 	p.Resume("saved")
@@ -102,9 +102,9 @@ func TestRealtimePoller_ResumeStreamsFromCursorAndAdvances(t *testing.T) {
 
 func TestRealtimePoller_RetriesSeedOnError(t *testing.T) {
 	sf := &scriptedFetcher{steps: []fetchResult{
-		{err: errors.New("boom")},                      // seed fails
-		{cursor: "c0"},                                 // seed retry succeeds
-		{scores: player.Scores{{ID: 5}}, cursor: "c1"}, // streams
+		{err: errors.New("boom")},                    // seed fails
+		{cursor: "c0"},                               // seed retry succeeds
+		{scores: gosu.Scores{{ID: 5}}, cursor: "c1"}, // streams
 	}}
 	p := NewRealtimePoller(sf.fetch, time.Millisecond)
 	sub := p.Subscribe()

@@ -1,4 +1,4 @@
-package phantom
+package tracker
 
 import (
 	"errors"
@@ -6,20 +6,19 @@ import (
 	"sync"
 	"time"
 
-	"github.com/minoxs/osu-phantom/pkg/osu"
-	"github.com/minoxs/osu-phantom/pkg/osu/player"
+	"github.com/minoxs/gosu-api/pkg/gosu"
 )
 
 type (
 	// AuthProvider is required for requests which require OAuth authorization
 	AuthProvider interface {
-		GetToken() *osu.GuestToken
+		GetToken() *gosu.GuestToken
 	}
 
 	// NewScore contains information of a new score
 	NewScore struct {
 		Rank  int
-		Score player.FullScore
+		Score gosu.FullScore
 	}
 
 	// Client handles the tracking of a user's scores
@@ -30,22 +29,22 @@ type (
 		Logger   *slog.Logger
 
 		OnNewScores func([]NewScore)
-		ranking     player.Ranking
+		ranking     gosu.Ranking
 		LastUpdate  time.Time
 
-		osu  *osu.Client
+		api  *gosu.Client
 		lock sync.Mutex
 	}
 )
 
 var ErrUserNotFound = errors.New("user not found")
 
-// Login will look for the user and return a phantom client with the given user.
+// Login will look for the user and return a tracking client with the given user.
 // Returns ErrUserNotFound if user is not found, or some HTTP error if failed to fetch user.
 // Call Client.KeepUpdated to keep rankings constantly updated, or manually update with Client.Update.
 func Login(provider AuthProvider, username string, start time.Time) (client *Client, err error) {
-	client = &Client{Username: username, Provider: provider, osu: osu.NewClient(0)}
-	client.UserID, err = client.osu.GetUserID(provider.GetToken(), client.Username)
+	client = &Client{Username: username, Provider: provider, api: gosu.NewClient(0)}
+	client.UserID, err = client.api.GetUserID(provider.GetToken(), client.Username)
 	client.LastUpdate = start
 	client.Logger = slog.Default().With("Username", username)
 
@@ -73,13 +72,13 @@ func NewClient(provider AuthProvider, userID int, username string, start time.Ti
 		Provider:   provider,
 		LastUpdate: start,
 		Logger:     slog.Default().With("Username", username),
-		osu:        osu.NewClient(0),
+		api:        gosu.NewClient(0),
 	}
 }
 
 // Restore rebuilds the ranking from previously persisted scores and advances
 // LastUpdate past the newest of them, so polling resumes without re-counting them.
-func (c *Client) Restore(scores player.Scores) {
+func (c *Client) Restore(scores gosu.Scores) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -138,7 +137,7 @@ func (c *Client) Update() bool {
 	var newest time.Time
 
 	for offset := 0; ; offset += recentScorePageSize {
-		page := c.osu.GetRecentScores(c.Provider.GetToken(), c.UserID, recentScorePageSize, offset)
+		page := c.api.GetRecentScores(c.Provider.GetToken(), c.UserID, recentScorePageSize, offset)
 		c.Logger.Debug("Recent scores", "Count", len(page), "Offset", offset)
 		if len(page) == 0 {
 			break
@@ -159,7 +158,7 @@ func (c *Client) Update() bool {
 
 // Ranking safely returns client ranking.
 // Modifications in the resulting ranking will not affect client.
-func (c *Client) Ranking() player.Ranking {
+func (c *Client) Ranking() gosu.Ranking {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	return c.ranking
@@ -175,7 +174,7 @@ func (c *Client) GetTotalPP() float64 {
 // foldPage adds every score on the page newer than prev into the ranking. It
 // stops at the first score at or older than prev. pageAllNew reports whether the
 // whole page was newer than prev, meaning more new scores may sit on the next page.
-func (c *Client) foldPage(page player.FullScores, prev time.Time) (pageAllNew bool) {
+func (c *Client) foldPage(page gosu.FullScores, prev time.Time) (pageAllNew bool) {
 	pageAllNew = true
 	var newScores []NewScore
 

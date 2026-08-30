@@ -1,4 +1,4 @@
-package phantom
+package tracker
 
 import (
 	"context"
@@ -6,14 +6,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/minoxs/osu-phantom/pkg/osu"
-	"github.com/minoxs/osu-phantom/pkg/osu/player"
+	"github.com/minoxs/gosu-api/pkg/gosu"
 )
 
 // ScoresFetcher fetches one page of osu!'s global recent-scores feed newer than
 // cursor, returning the page and the cursor for the next. It is the one osu-facing
 // dependency of RealtimePoller, injected so the tail loop tests without the network.
-type ScoresFetcher func(cursor string) (player.Scores, string, error)
+type ScoresFetcher func(cursor string) (gosu.Scores, string, error)
 
 // RealtimeConfig sets the tail cadence, which ruleset to follow, and the pacer
 // priority the feed poll reserves at.
@@ -26,7 +25,7 @@ type RealtimeConfig struct {
 	Ruleset string
 	// Priority is the pacer level the feed poll reserves at. The caller sets it so
 	// the feed never starves behind lower-priority traffic.
-	Priority osu.Priority
+	Priority gosu.Priority
 }
 
 const (
@@ -71,14 +70,14 @@ func NewRealtimePoller(fetch ScoresFetcher, interval time.Duration) *RealtimePol
 }
 
 // NewOsuRealtimePoller builds a RealtimePoller that tails osu!'s feed through
-// osu-phantom.
+// gosu-api.
 func NewOsuRealtimePoller(provider AuthProvider, cfg RealtimeConfig) *RealtimePoller {
 	ruleset := cfg.Ruleset
 	if ruleset == "" {
 		ruleset = "osu"
 	}
-	client := osu.NewClient(cfg.Priority)
-	fetch := func(cursor string) (player.Scores, string, error) {
+	client := gosu.NewClient(cfg.Priority)
+	fetch := func(cursor string) (gosu.Scores, string, error) {
 		return client.GetScores(provider.GetToken(), ruleset, cursor)
 	}
 	return NewRealtimePoller(fetch, cfg.Interval)

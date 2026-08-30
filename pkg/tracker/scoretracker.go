@@ -1,11 +1,11 @@
-package phantom
+package tracker
 
 import (
 	"context"
 	"sync"
 	"time"
 
-	"github.com/minoxs/osu-phantom/pkg/osu/player"
+	"github.com/minoxs/gosu-api/pkg/gosu"
 )
 
 // ScoreTracker narrows a feed to a chosen set of users, each from a start time.
@@ -14,7 +14,7 @@ import (
 type ScoreTracker interface {
 	Track(userID int, since time.Time)
 	Untrack(userID int)
-	Scores() <-chan player.Score
+	Scores() <-chan gosu.Score
 }
 
 // FilterTracker implements ScoreTracker over a ScoreProvider: it keeps a tracked
@@ -23,7 +23,7 @@ type ScoreTracker interface {
 type FilterTracker struct {
 	mu      sync.Mutex
 	tracked map[int]time.Time
-	out     chan player.Score
+	out     chan gosu.Score
 }
 
 // NewFilterTracker subscribes to provider and starts forwarding matching scores.
@@ -32,13 +32,13 @@ type FilterTracker struct {
 func NewFilterTracker(ctx context.Context, provider ScoreProvider) *FilterTracker {
 	t := &FilterTracker{
 		tracked: make(map[int]time.Time),
-		out:     make(chan player.Score, DefaultSubBuffer),
+		out:     make(chan gosu.Score, DefaultSubBuffer),
 	}
 	go t.run(ctx, provider.Subscribe())
 	return t
 }
 
-func (t *FilterTracker) run(ctx context.Context, in <-chan player.Score) {
+func (t *FilterTracker) run(ctx context.Context, in <-chan gosu.Score) {
 	defer close(t.out)
 	for {
 		select {
@@ -60,7 +60,7 @@ func (t *FilterTracker) run(ctx context.Context, in <-chan player.Score) {
 	}
 }
 
-func (t *FilterTracker) wants(s player.Score) bool {
+func (t *FilterTracker) wants(s gosu.Score) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	since, ok := t.tracked[s.UserID]
@@ -83,4 +83,4 @@ func (t *FilterTracker) Untrack(userID int) {
 }
 
 // Scores is the stream of tracked users' scores.
-func (t *FilterTracker) Scores() <-chan player.Score { return t.out }
+func (t *FilterTracker) Scores() <-chan gosu.Score { return t.out }

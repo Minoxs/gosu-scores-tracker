@@ -1,16 +1,16 @@
-package phantom
+package tracker
 
 import (
 	"sync"
 
-	"github.com/minoxs/osu-phantom/pkg/osu/player"
+	"github.com/minoxs/gosu-api/pkg/gosu"
 )
 
 // ScoreProvider is a source of score events. It surfaces scores without regard
 // to who is tracked. Each Subscribe call returns an independent stream, so
 // several consumers can read the same feed at once.
 type ScoreProvider interface {
-	Subscribe() <-chan player.Score
+	Subscribe() <-chan gosu.Score
 }
 
 // DefaultSubBuffer is the per-subscriber channel capacity a Broadcaster uses.
@@ -24,21 +24,21 @@ const DefaultSubBuffer = 256
 type Broadcaster struct {
 	buffer int
 	mu     sync.Mutex
-	subs   map[chan player.Score]struct{}
+	subs   map[chan gosu.Score]struct{}
 }
 
 // NewBroadcaster builds an empty Broadcaster with the default subscriber buffer.
 func NewBroadcaster() *Broadcaster {
 	return &Broadcaster{
 		buffer: DefaultSubBuffer,
-		subs:   make(map[chan player.Score]struct{}),
+		subs:   make(map[chan gosu.Score]struct{}),
 	}
 }
 
 // Subscribe registers a new consumer and returns its stream. Close ends every
 // stream a Broadcaster has handed out.
-func (b *Broadcaster) Subscribe() <-chan player.Score {
-	ch := make(chan player.Score, b.buffer)
+func (b *Broadcaster) Subscribe() <-chan gosu.Score {
+	ch := make(chan gosu.Score, b.buffer)
 	b.mu.Lock()
 	b.subs[ch] = struct{}{}
 	b.mu.Unlock()
@@ -46,7 +46,7 @@ func (b *Broadcaster) Subscribe() <-chan player.Score {
 }
 
 // Emit fans a score out to every subscriber, skipping any whose buffer is full.
-func (b *Broadcaster) Emit(s player.Score) {
+func (b *Broadcaster) Emit(s gosu.Score) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	for ch := range b.subs {

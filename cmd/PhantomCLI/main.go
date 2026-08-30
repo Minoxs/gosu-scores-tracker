@@ -5,8 +5,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/minoxs/osu-phantom/pkg/osu"
-	"github.com/minoxs/osu-phantom/pkg/phantom"
+	"github.com/minoxs/gosu-api/pkg/gosu"
+	"github.com/minoxs/gosu-scores-tracker/pkg/tracker"
 )
 
 func FatalError(err error) {
@@ -21,7 +21,7 @@ func init() {
 
 func main() {
 	var (
-		credentials osu.Credentials
+		credentials gosu.Credentials
 		username    string
 	)
 
@@ -33,16 +33,16 @@ func main() {
 
 	var (
 		err    error
-		token  *osu.GuestToken
-		client *phantom.Client
+		token  *gosu.GuestToken
+		client *tracker.Client
 	)
 
-	token, err = osu.NewClient(0).GetGuestToken(credentials)
+	token, err = gosu.NewClient(0).GetGuestToken(credentials)
 	FatalError(err)
 
-	var provider = &phantom.DefaultProvider{Token: token}
+	var provider = &tracker.DefaultProvider{Token: token}
 
-	client, err = phantom.Login(provider, username, time.Now())
+	client, err = tracker.Login(provider, username, time.Now())
 	FatalError(err)
 
 	client.KeepUpdated(1*time.Minute, 30*time.Minute)

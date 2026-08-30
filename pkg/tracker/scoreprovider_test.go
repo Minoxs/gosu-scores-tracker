@@ -1,29 +1,29 @@
-package phantom
+package tracker
 
 import (
 	"testing"
 	"time"
 
-	"github.com/minoxs/osu-phantom/pkg/osu/player"
+	"github.com/minoxs/gosu-api/pkg/gosu"
 )
 
-func score(id, user int, at time.Time) player.Score {
-	return player.Score{ID: int64(id), UserID: user, EndedAt: at}
+func score(id, user int, at time.Time) gosu.Score {
+	return gosu.Score{ID: int64(id), UserID: user, EndedAt: at}
 }
 
-func recv(t *testing.T, ch <-chan player.Score) player.Score {
+func recv(t *testing.T, ch <-chan gosu.Score) gosu.Score {
 	t.Helper()
 	select {
 	case s := <-ch:
 		return s
 	case <-time.After(time.Second):
 		t.Fatal("timeout waiting for score")
-		return player.Score{}
+		return gosu.Score{}
 	}
 }
 
 // assertNoScore fails if any score arrives within a short grace period.
-func assertNoScore(t *testing.T, ch <-chan player.Score) {
+func assertNoScore(t *testing.T, ch <-chan gosu.Score) {
 	t.Helper()
 	select {
 	case s := <-ch:

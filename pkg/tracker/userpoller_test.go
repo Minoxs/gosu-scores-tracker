@@ -1,4 +1,4 @@
-package phantom
+package tracker
 
 import (
 	"slices"
@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/minoxs/osu-phantom/pkg/osu/player"
+	"github.com/minoxs/gosu-api/pkg/gosu"
 )
 
 // fakeFetcher scripts the osu! fetch: it records the since it is called with and,
@@ -19,7 +19,7 @@ type fakeFetcher struct {
 	emit   bool
 }
 
-func (f *fakeFetcher) fetch(userID int, since time.Time) (player.FullScores, time.Time, error) {
+func (f *fakeFetcher) fetch(userID int, since time.Time) (gosu.FullScores, time.Time, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.sinces = append(f.sinces, since)
@@ -28,18 +28,18 @@ func (f *fakeFetcher) fetch(userID int, since time.Time) (player.FullScores, tim
 	}
 	f.nextID++
 	at := f.base.Add(time.Duration(f.nextID) * time.Second)
-	return player.FullScores{{Score: player.Score{ID: f.nextID, UserID: userID, EndedAt: at}}}, at, nil
+	return gosu.FullScores{{Score: gosu.Score{ID: f.nextID, UserID: userID, EndedAt: at}}}, at, nil
 }
 
 // recvFull reads one full score off the poller stream, failing on timeout.
-func recvFull(t *testing.T, ch <-chan player.FullScore) player.FullScore {
+func recvFull(t *testing.T, ch <-chan gosu.FullScore) gosu.FullScore {
 	t.Helper()
 	select {
 	case s := <-ch:
 		return s
 	case <-time.After(time.Second):
 		t.Fatal("timeout waiting for score")
-		return player.FullScore{}
+		return gosu.FullScore{}
 	}
 }
 
@@ -57,7 +57,7 @@ func fastConfig() PollConfig {
 
 // assertQuiet drains anything in flight for a grace period, then fails if a
 // further score arrives, proving polling has stopped.
-func assertQuiet(t *testing.T, ch <-chan player.FullScore) {
+func assertQuiet(t *testing.T, ch <-chan gosu.FullScore) {
 	t.Helper()
 	grace := time.After(50 * time.Millisecond)
 	for draining := true; draining; {

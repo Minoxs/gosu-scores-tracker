@@ -1,21 +1,21 @@
-package phantom
+package tracker
 
 import (
 	"log/slog"
 	"testing"
 	"time"
 
-	"github.com/minoxs/osu-phantom/pkg/osu/player"
+	"github.com/minoxs/gosu-api/pkg/gosu"
 )
 
-func full(id int64, beatmapID int64, pp float64) player.FullScore {
-	return player.FullScore{
-		Score:   player.Score{ID: id, BeatmapID: beatmapID, PP: pp, EndedAt: time.Now()},
-		Beatmap: player.Beatmap{ID: beatmapID},
+func full(id int64, beatmapID int64, pp float64) gosu.FullScore {
+	return gosu.FullScore{
+		Score:   gosu.Score{ID: id, BeatmapID: beatmapID, PP: pp, EndedAt: time.Now()},
+		Beatmap: gosu.Beatmap{ID: beatmapID},
 	}
 }
 
-var testScores = player.FullScores{
+var testScores = gosu.FullScores{
 	full(1, 1, 100),
 	full(2, 1, 110),
 	full(3, 1, 90),
@@ -57,7 +57,7 @@ func TestClient_Ranking(t *testing.T) {
 
 // A score with no pp is not ranked.
 func TestClient_FoldPageSkipsNoPP(t *testing.T) {
-	var mixed = player.FullScores{
+	var mixed = gosu.FullScores{
 		full(10, 10, 100),
 		full(11, 11, 0),
 		full(12, 12, 0),
@@ -81,7 +81,7 @@ func TestClient_FoldPageSkipsNoPP(t *testing.T) {
 }
 
 func TestClient_RestoreSkipsNoPP(t *testing.T) {
-	var mixed = player.Scores{
+	var mixed = gosu.Scores{
 		{ID: 20, BeatmapID: 20, PP: 100, EndedAt: time.Now()},
 		{ID: 21, BeatmapID: 21, PP: 0, EndedAt: time.Now()},
 	}
