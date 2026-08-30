@@ -7,7 +7,7 @@ import (
 	"github.com/minoxs/gosu-api/pkg/gosu"
 )
 
-func score(id, user int, at time.Time) gosu.Score {
+func score(id int, user int64, at time.Time) gosu.Score {
 	return gosu.Score{ID: int64(id), UserID: user, EndedAt: at}
 }
 

@@ -21,7 +21,7 @@ type FullScoreProvider interface {
 // with the map embedded, plus the newest score's time seen so the caller can advance
 // its watermark. It is the one osu!-facing dependency of UserPoller, injected so the
 // polling loop can be tested without the network.
-type FullScoreFetcher func(userID int, since time.Time) (scores gosu.FullScores, newest time.Time, err error)
+type FullScoreFetcher func(userID int64, since time.Time) (scores gosu.FullScores, newest time.Time, err error)
 
 // PollConfig sets the per-user polling cadence. The osu! terms of use forbid
 // polling a user more than once a minute, so BaseInterval floors the cadence and
@@ -44,14 +44,14 @@ type UserPoller struct {
 	// the time of the poll and when the next is due, so a consumer can report how
 	// fresh a user's data is even across polls that found nothing new. It must not
 	// be mutated once Track has been called.
-	OnCheck func(userID int, checked, next time.Time)
+	OnCheck func(userID int64, checked, next time.Time)
 
 	ctx    context.Context
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
 	mu      sync.Mutex
-	tracked map[int]context.CancelFunc
+	tracked map[int64]context.CancelFunc
 	closed  bool
 }
 
@@ -70,7 +70,7 @@ func NewUserPoller(fetch FullScoreFetcher, cfg PollConfig) *UserPoller {
 		out:     make(chan gosu.FullScore, DefaultSubBuffer),
 		ctx:     ctx,
 		cancel:  cancel,
-		tracked: make(map[int]context.CancelFunc),
+		tracked: make(map[int64]context.CancelFunc),
 	}
 }
 
@@ -81,7 +81,7 @@ func NewOsuUserPoller(provider AuthProvider, cfg PollConfig) *UserPoller {
 
 // Track starts polling userID, surfacing scores set after since. It is idempotent
 // and a no-op once the tracker is closed.
-func (t *UserPoller) Track(userID int, since time.Time) {
+func (t *UserPoller) Track(userID int64, since time.Time) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if t.closed {
@@ -97,7 +97,7 @@ func (t *UserPoller) Track(userID int, since time.Time) {
 }
 
 // Untrack stops polling userID.
-func (t *UserPoller) Untrack(userID int) {
+func (t *UserPoller) Untrack(userID int64) {
 	t.mu.Lock()
 	cancel, ok := t.tracked[userID]
 	delete(t.tracked, userID)
@@ -126,7 +126,7 @@ func (t *UserPoller) Close() {
 	close(t.out)
 }
 
-func (t *UserPoller) loop(ctx context.Context, userID int, since time.Time) {
+func (t *UserPoller) loop(ctx context.Context, userID int64, since time.Time) {
 	defer t.wg.Done()
 
 	watermark := since
@@ -207,7 +207,7 @@ func jitter(d time.Duration, frac float64) time.Duration {
 // a whole page is newer than since. It forwards the crude scores the API returns.
 func osuScoreFetcher(provider AuthProvider) FullScoreFetcher {
 	client := gosu.NewClient(0)
-	return func(userID int, since time.Time) (gosu.FullScores, time.Time, error) {
+	return func(userID int64, since time.Time) (gosu.FullScores, time.Time, error) {
 		var out gosu.FullScores
 		var newest time.Time
 

@@ -12,8 +12,8 @@ import (
 // Track and Untrack adjust that set at any time; Scores yields the scores of
 // tracked users set after their start.
 type ScoreTracker interface {
-	Track(userID int, since time.Time)
-	Untrack(userID int)
+	Track(userID int64, since time.Time)
+	Untrack(userID int64)
 	Scores() <-chan gosu.Score
 }
 
@@ -22,7 +22,7 @@ type ScoreTracker interface {
 // that user's start time.
 type FilterTracker struct {
 	mu      sync.Mutex
-	tracked map[int]time.Time
+	tracked map[int64]time.Time
 	out     chan gosu.Score
 }
 
@@ -31,7 +31,7 @@ type FilterTracker struct {
 // which point the Scores channel is closed.
 func NewFilterTracker(ctx context.Context, provider ScoreProvider) *FilterTracker {
 	t := &FilterTracker{
-		tracked: make(map[int]time.Time),
+		tracked: make(map[int64]time.Time),
 		out:     make(chan gosu.Score, DefaultSubBuffer),
 	}
 	go t.run(ctx, provider.Subscribe())
@@ -69,14 +69,14 @@ func (t *FilterTracker) wants(s gosu.Score) bool {
 
 // Track starts forwarding userID's scores set after since. Calling it again with
 // a new start moves the boundary.
-func (t *FilterTracker) Track(userID int, since time.Time) {
+func (t *FilterTracker) Track(userID int64, since time.Time) {
 	t.mu.Lock()
 	t.tracked[userID] = since
 	t.mu.Unlock()
 }
 
 // Untrack stops forwarding userID's scores.
-func (t *FilterTracker) Untrack(userID int) {
+func (t *FilterTracker) Untrack(userID int64) {
 	t.mu.Lock()
 	delete(t.tracked, userID)
 	t.mu.Unlock()

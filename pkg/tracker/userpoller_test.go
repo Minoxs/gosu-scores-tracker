@@ -19,7 +19,7 @@ type fakeFetcher struct {
 	emit   bool
 }
 
-func (f *fakeFetcher) fetch(userID int, since time.Time) (gosu.FullScores, time.Time, error) {
+func (f *fakeFetcher) fetch(userID int64, since time.Time) (gosu.FullScores, time.Time, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.sinces = append(f.sinces, since)
@@ -134,7 +134,7 @@ func TestUserPoller_TrackIsIdempotent(t *testing.T) {
 
 func TestUserPoller_ReportsChecks(t *testing.T) {
 	type check struct {
-		user    int
+		user    int64
 		checked time.Time
 		next    time.Time
 	}
@@ -143,7 +143,7 @@ func TestUserPoller_ReportsChecks(t *testing.T) {
 	defer tr.Close()
 
 	checks := make(chan check, 8)
-	tr.OnCheck = func(userID int, checked, next time.Time) {
+	tr.OnCheck = func(userID int64, checked, next time.Time) {
 		select {
 		case checks <- check{userID, checked, next}:
 		default:

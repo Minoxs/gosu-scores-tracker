@@ -23,7 +23,7 @@ type (
 
 	// Client handles the tracking of a user's scores
 	Client struct {
-		UserID   int
+		UserID   int64
 		Username string
 		Provider AuthProvider
 		Logger   *slog.Logger
@@ -65,7 +65,7 @@ func Login(provider AuthProvider, username string, start time.Time) (client *Cli
 
 // NewClient builds a tracking client for a user whose id is already known,
 // skipping the username lookup Login performs. Scores set after start are tracked.
-func NewClient(provider AuthProvider, userID int, username string, start time.Time) *Client {
+func NewClient(provider AuthProvider, userID int64, username string, start time.Time) *Client {
 	return &Client{
 		UserID:     userID,
 		Username:   username,
