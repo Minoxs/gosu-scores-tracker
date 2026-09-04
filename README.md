@@ -1,24 +1,62 @@
-# Osu-Phantom
+# gosu-scores-tracker
 
-A Go library that tracks a user's recent osu! scores and builds a fresh ranking from only the scores they set after tracking begins. Each tracked user is a `phantom.Client` that polls the osu! API for new plays and keeps a weighted top-100: scores are deduplicated per beatmap keeping the best, and total pp uses osu!'s weighting of 100%, 95%, 90.25% and so on down the list.
+Score tracking plugin for [gosu-api](https://github.com/Minoxs/gosu-api).
 
-## PP
+## Install
 
-Each score's pp is whatever the osu! API returns; the library computes none. The API omits pp for a score that earns none (unranked mods, an unranked map, or one osu! has not finished processing), and that decodes as zero. A zero-pp score contributes nothing to the ranking; any further policy on it is the caller's.
-
-## Rate limiting
-
-Every osu! API request goes through an `osu.Client`, and every client reserves a slot on a single process-wide pacer, so the whole program stays inside the osu! API terms of use regardless of how many clients run. The default is 60 requests per minute; change it with `osu.SetRateLimit`. A client is built at a priority with `osu.NewClient(prio)`: when several requests wait at once the pacer grants the higher priority first, so a burst of background traffic never delays a higher-priority request by more than one slot. The priority is the client's, chosen once when it is built; the request methods carry none of their own. The caller assigns the levels their meaning.
+```bash
+go get github.com/minoxs/gosu-scores-tracker
+```
 
 ## Usage
 
-Authorize with an OAuth client-credentials token through `osu.NewClient(prio).GetGuestToken`, then hand a `phantom.AuthProvider` to a client. `phantom.NewClient` builds a client for a known user id; `phantom.Login` looks the user up by name first. `Client.Update` fetches new scores, paging by offset while every score on a page is newer than the last seen, and folds them into the ranking. `Client.KeepUpdated` runs that on an interval until the user goes idle. `Client.Ranking`, `Client.GetTotalPP`, and `Client.Restore` read the ranking and rehydrate it from persisted scores.
+Both pollers run off your `gosu.App` and share its rate ceiling. Subscribe, run in a goroutine, close the channel to unsubscribe. Drain it or it blocks.
 
-## Building
+### Players
 
-The module is pure Go, with no cgo and no native dependency.
+This mode of tracking is what I initially came up with, but it doesn't scale well for many users.
+Since this endpoints gives you a full beatmap for free, it works great for tools that calculate pp and stuff like that.
+Important to note that this method also gives you **unranked**, **loved** and **failed** scores.
 
-```bash
-go build ./...
-go test ./...
+```go
+var poller = tracker.NewUserPoller(app, tracker.PollConfig{})
+var scores = poller.Subscribe()
+poller.Track(peppyID, time.Now()) 
+
+go poller.Run(ctx)
+for s := range scores {
+	fmt.Println(s.UserID, s.Beatmapset.Title, s.PP)
+}
 ```
+
+**osu!standard only**
+
+### All Players
+
+This mode of tracking was yoinked almost one to one from [kaysting's osu-scores-cache](https://github.com/kaysting/osu-score-cache).
+This one will give you scores for _all players_ for any mode you choose, so do expect quite a constant stream of scores.
+I'm not totally sure, but I think this will only emit finished scores on ranked maps.
+
+```go
+var feed = tracker.NewRealtimePoller(app, tracker.RealtimeConfig{Priority: 1})
+var scores = feed.Subscribe()
+
+go feed.Run(ctx)
+for s := range scores {
+	fmt.Println(s.UserID, s.BeatmapID, s.PP)
+}
+```
+
+Persist `feed.Cursor()`, pass it to `feed.Resume()` before `Run` to skip nothing across a restart.
+The cursor ensures you're not missing scores, so you don't even have to poll that often to keep up with it.
+If the poller starts falling behind, it will also speed up the interval to catch up, in case that happens.
+
+## Rate limiting 
+
+Same rules as [gosu-api](https://github.com/Minoxs/gosu-api) applies here. **Please be careful**.
+
+## AI disclosure
+
+Most of this code is pure human made slop, but the more recent versions have had a hefty usage of AI to quickly add new endpoints and rate limiting (and now the repo split).
+To be honest, I hate it probably as much as you do, but a few years working as a software engineer and your hopes and dreams will absolutely be crushed as well.
+Still, I had a lot of fun designing this thing and have reviewed things thoroughly, once I get things at a stable point I will make sure everything is cleaned up.

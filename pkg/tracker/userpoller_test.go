@@ -1,12 +1,13 @@
-package phantom
+package tracker
 
 import (
+	"context"
 	"slices"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/minoxs/osu-phantom/pkg/osu/player"
+	"github.com/minoxs/gosu-api/pkg/gosu"
 )
 
 // fakeFetcher scripts the osu! fetch: it records the since it is called with and,
@@ -19,7 +20,7 @@ type fakeFetcher struct {
 	emit   bool
 }
 
-func (f *fakeFetcher) fetch(userID int, since time.Time) (player.FullScores, time.Time, error) {
+func (f *fakeFetcher) fetch(userID int64, since time.Time) (gosu.FullScores, time.Time, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.sinces = append(f.sinces, since)
@@ -28,25 +29,25 @@ func (f *fakeFetcher) fetch(userID int, since time.Time) (player.FullScores, tim
 	}
 	f.nextID++
 	at := f.base.Add(time.Duration(f.nextID) * time.Second)
-	return player.FullScores{{Score: player.Score{ID: f.nextID, UserID: userID, EndedAt: at}}}, at, nil
-}
-
-// recvFull reads one full score off the poller stream, failing on timeout.
-func recvFull(t *testing.T, ch <-chan player.FullScore) player.FullScore {
-	t.Helper()
-	select {
-	case s := <-ch:
-		return s
-	case <-time.After(time.Second):
-		t.Fatal("timeout waiting for score")
-		return player.FullScore{}
-	}
+	return gosu.FullScores{{Score: gosu.Score{ID: f.nextID, UserID: userID, EndedAt: at}}}, at, nil
 }
 
 func (f *fakeFetcher) seenSinces() []time.Time {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return slices.Clone(f.sinces)
+}
+
+// recvFull reads one full score off the poller stream, failing on timeout.
+func recvFull(t *testing.T, ch <-chan gosu.FullScore) gosu.FullScore {
+	t.Helper()
+	select {
+	case s := <-ch:
+		return s
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for score")
+		return gosu.FullScore{}
+	}
 }
 
 const fastPoll = time.Millisecond
@@ -57,7 +58,7 @@ func fastConfig() PollConfig {
 
 // assertQuiet drains anything in flight for a grace period, then fails if a
 // further score arrives, proving polling has stopped.
-func assertQuiet(t *testing.T, ch <-chan player.FullScore) {
+func assertQuiet(t *testing.T, ch <-chan gosu.FullScore) {
 	t.Helper()
 	grace := time.After(50 * time.Millisecond)
 	for draining := true; draining; {
@@ -78,24 +79,33 @@ func assertQuiet(t *testing.T, ch <-chan player.FullScore) {
 
 func TestUserPoller_EmitsScores(t *testing.T) {
 	f := &fakeFetcher{base: time.Now(), emit: true}
-	tr := NewUserPoller(f.fetch, fastConfig())
-	defer tr.Close()
+	tr := newUserPoller(f.fetch, fastConfig())
 
+	sub := tr.Subscribe()
 	tr.Track(7, time.Now().Add(-time.Hour))
 
-	if got := recvFull(t, tr.Scores()); got.UserID != 7 {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go tr.Run(ctx)
+
+	if got := recvFull(t, sub); got.UserID != 7 {
 		t.Fatalf("emitted score for user %d, want 7", got.UserID)
 	}
 }
 
 func TestUserPoller_AdvancesWatermark(t *testing.T) {
 	f := &fakeFetcher{base: time.Now(), emit: true}
-	tr := NewUserPoller(f.fetch, fastConfig())
+	tr := newUserPoller(f.fetch, fastConfig())
 
+	sub := tr.Subscribe()
 	tr.Track(7, time.Now().Add(-time.Hour))
-	recvFull(t, tr.Scores())
-	recvFull(t, tr.Scores())
-	tr.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go tr.Run(ctx)
+
+	recvFull(t, sub)
+	recvFull(t, sub)
+	cancel()
 
 	sinces := f.seenSinces()
 	if len(sinces) < 2 {
@@ -108,76 +118,57 @@ func TestUserPoller_AdvancesWatermark(t *testing.T) {
 
 func TestUserPoller_Untrack(t *testing.T) {
 	f := &fakeFetcher{base: time.Now(), emit: true}
-	tr := NewUserPoller(f.fetch, fastConfig())
-	defer tr.Close()
+	tr := newUserPoller(f.fetch, fastConfig())
 
+	sub := tr.Subscribe()
 	tr.Track(7, time.Now().Add(-time.Hour))
-	recvFull(t, tr.Scores())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go tr.Run(ctx)
+
+	recvFull(t, sub)
 	tr.Untrack(7)
 
-	assertQuiet(t, tr.Scores())
+	assertQuiet(t, sub)
 }
 
 func TestUserPoller_TrackIsIdempotent(t *testing.T) {
 	f := &fakeFetcher{base: time.Now(), emit: true}
-	tr := NewUserPoller(f.fetch, fastConfig())
-	defer tr.Close()
+	tr := newUserPoller(f.fetch, fastConfig())
 
+	sub := tr.Subscribe()
 	since := time.Now().Add(-time.Hour)
 	tr.Track(7, since)
 	tr.Track(7, since) // duplicate must not start a second loop
-	recvFull(t, tr.Scores())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go tr.Run(ctx)
+
+	recvFull(t, sub)
 	tr.Untrack(7) // a single untrack stops all polling of user 7
 
-	assertQuiet(t, tr.Scores())
+	assertQuiet(t, sub)
 }
 
-func TestUserPoller_ReportsChecks(t *testing.T) {
-	type check struct {
-		user    int
-		checked time.Time
-		next    time.Time
-	}
-	f := &fakeFetcher{base: time.Now()} // empty polls still report a check
-	tr := NewUserPoller(f.fetch, fastConfig())
-	defer tr.Close()
-
-	checks := make(chan check, 8)
-	tr.OnCheck = func(userID int, checked, next time.Time) {
-		select {
-		case checks <- check{userID, checked, next}:
-		default:
-		}
-	}
-
-	tr.Track(7, time.Now().Add(-time.Hour))
-
-	select {
-	case c := <-checks:
-		if c.user != 7 {
-			t.Fatalf("check for user %d, want 7", c.user)
-		}
-		if !c.next.After(c.checked) {
-			t.Fatalf("next check %v not after checked %v", c.next, c.checked)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("timeout waiting for a check report")
-	}
-}
-
-func TestUserPoller_CloseClosesScores(t *testing.T) {
+func TestUserPoller_ShutdownClosesStreams(t *testing.T) {
 	f := &fakeFetcher{base: time.Now()}
-	tr := NewUserPoller(f.fetch, fastConfig())
+	tr := newUserPoller(f.fetch, fastConfig())
 
+	sub := tr.Subscribe()
 	tr.Track(7, time.Now().Add(-time.Hour))
-	tr.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go tr.Run(ctx)
+	cancel()
 
 	select {
-	case _, ok := <-tr.Scores():
+	case _, ok := <-sub:
 		if ok {
-			t.Fatal("expected Scores channel to close")
+			t.Fatal("expected Subscribe channel to close on shutdown")
 		}
 	case <-time.After(time.Second):
-		t.Fatal("timeout waiting for Scores to close")
+		t.Fatal("timeout waiting for stream to close")
 	}
 }
