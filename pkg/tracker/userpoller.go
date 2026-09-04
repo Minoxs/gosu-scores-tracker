@@ -10,120 +10,125 @@ import (
 	"github.com/minoxs/gosu-api/pkg/gosu"
 )
 
-// FullScoreProvider is a source of scores with their maps embedded. UserPoller is
-// one: unlike the lean realtime ScoreProvider, the user-scores endpoint returns
-// FullScore, so its stream carries the beatmap and beatmapset.
-type FullScoreProvider interface {
-	Scores() <-chan gosu.FullScore
-}
+// fullScoreFetcher returns a user's scores set after since, with the map embedded,
+// plus the newest score's time so the caller can advance its watermark. It is the
+// one osu!-facing dependency of UserPoller, injected so the loop tests without the network
+type fullScoreFetcher func(userID int64, since time.Time) (scores gosu.FullScores, newest time.Time, err error)
 
-// FullScoreFetcher returns a user's scores set after since, as the API returns them
-// with the map embedded, plus the newest score's time seen so the caller can advance
-// its watermark. It is the one osu!-facing dependency of UserPoller, injected so the
-// polling loop can be tested without the network.
-type FullScoreFetcher func(userID int64, since time.Time) (scores gosu.FullScores, newest time.Time, err error)
-
-// PollConfig sets the per-user polling cadence. The osu! terms of use forbid
-// polling a user more than once a minute, so BaseInterval floors the cadence and
-// MaxInterval caps the backoff applied while a user sets nothing new.
+// PollConfig sets the per-user polling cadence
 type PollConfig struct {
+	// BaseInterval floors the cadence, at least a minute per the osu! terms
 	BaseInterval time.Duration
-	MaxInterval  time.Duration
-	JitterFrac   float64
+	// MaxInterval caps the backoff applied while a user sets nothing new
+	MaxInterval time.Duration
+	// JitterFrac is the fraction of BaseInterval added at random, never subtracted
+	JitterFrac float64
 }
 
-// UserPoller is a ScoreTracker that surfaces tracked users' new ranked scores by
-// polling the osu! API. Each tracked user runs its own poll loop, backing off
-// while idle. Accumulation is the consumer's job.
+// UserPoller polls tracked users for new scores, fanning each to its subscribers.
+// Each tracked user runs its own poll loop, backing off while idle. Its scores are
+// full, with the beatmap and beatmapset embedded
 type UserPoller struct {
-	fetch FullScoreFetcher
-	cfg   PollConfig
-	out   chan gosu.FullScore
-
-	// OnCheck, when set before the first Track, is called after every poll with
-	// the time of the poll and when the next is due, so a consumer can report how
-	// fresh a user's data is even across polls that found nothing new. It must not
-	// be mutated once Track has been called.
-	OnCheck func(userID int64, checked, next time.Time)
-
-	ctx    context.Context
-	cancel context.CancelFunc
-	wg     sync.WaitGroup
+	fetch  fullScoreFetcher
+	cfg    PollConfig
+	bc     *broadcaster[gosu.FullScore]
+	logger *slog.Logger
 
 	mu      sync.Mutex
-	tracked map[int64]context.CancelFunc
-	closed  bool
+	ctx     context.Context
+	running bool
+	tracked map[int64]time.Time
+	cancels map[int64]context.CancelFunc
+	wg      sync.WaitGroup
 }
 
-// NewUserPoller builds a tracker driven by the given fetcher.
-func NewUserPoller(fetch FullScoreFetcher, cfg PollConfig) *UserPoller {
+// NewUserPoller builds a poller that fetches through app, sharing its rate ceiling
+// so your own app.GuestClient calls are never crowded out
+func NewUserPoller(app *gosu.App, cfg PollConfig) *UserPoller {
+	return newUserPoller(osuScoreFetcher(app), cfg)
+}
+
+func newUserPoller(fetch fullScoreFetcher, cfg PollConfig) *UserPoller {
 	if cfg.BaseInterval <= 0 {
 		cfg.BaseInterval = time.Minute
 	}
 	if cfg.MaxInterval < cfg.BaseInterval {
 		cfg.MaxInterval = 30 * time.Minute
 	}
-	ctx, cancel := context.WithCancel(context.Background())
 	return &UserPoller{
 		fetch:   fetch,
 		cfg:     cfg,
-		out:     make(chan gosu.FullScore, DefaultSubBuffer),
-		ctx:     ctx,
-		cancel:  cancel,
-		tracked: make(map[int64]context.CancelFunc),
+		bc:      newBroadcaster[gosu.FullScore](),
+		logger:  slog.Default().With("component", "userpoller"),
+		tracked: make(map[int64]time.Time),
+		cancels: make(map[int64]context.CancelFunc),
 	}
 }
 
-// NewOsuUserPoller builds a UserPoller that fetches through gosu-api.
-func NewOsuUserPoller(provider AuthProvider, cfg PollConfig) *UserPoller {
-	return NewUserPoller(osuScoreFetcher(provider), cfg)
-}
+// Subscribe returns an independent stream of tracked users' scores. Drain it or
+// delivery blocks and slows polling. Close it to unsubscribe; Run closes the rest
+func (t *UserPoller) Subscribe() chan gosu.FullScore { return t.bc.subscribe() }
 
-// Track starts polling userID, surfacing scores set after since. It is idempotent
-// and a no-op once the tracker is closed.
+// Track starts polling userID for scores set after since. Before Run it is
+// remembered and started when Run begins; while running it starts at once. Idempotent
 func (t *UserPoller) Track(userID int64, since time.Time) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if t.closed {
-		return
-	}
 	if _, ok := t.tracked[userID]; ok {
 		return
 	}
-	ctx, cancel := context.WithCancel(t.ctx)
-	t.tracked[userID] = cancel
-	t.wg.Add(1)
-	go t.loop(ctx, userID, since)
-}
-
-// Untrack stops polling userID.
-func (t *UserPoller) Untrack(userID int64) {
-	t.mu.Lock()
-	cancel, ok := t.tracked[userID]
-	delete(t.tracked, userID)
-	t.mu.Unlock()
-	if ok {
-		cancel()
+	t.tracked[userID] = since
+	if t.running {
+		t.startLoop(userID, since)
 	}
 }
 
-// Scores is the stream of tracked users' new scores, each with its map embedded.
-func (t *UserPoller) Scores() <-chan gosu.FullScore { return t.out }
-
-// Close stops every poll loop and closes the Scores channel once they have all
-// exited. The tracker cannot be reused afterwards.
-func (t *UserPoller) Close() {
+// Untrack stops polling userID
+func (t *UserPoller) Untrack(userID int64) {
 	t.mu.Lock()
-	if t.closed {
+	defer t.mu.Unlock()
+	delete(t.tracked, userID)
+	if cancel, ok := t.cancels[userID]; ok {
+		cancel()
+		delete(t.cancels, userID)
+	}
+}
+
+// Run polls every tracked user until ctx is cancelled. It blocks, so run it in a
+// goroutine
+func (t *UserPoller) Run(ctx context.Context) {
+	t.mu.Lock()
+	if t.running {
 		t.mu.Unlock()
 		return
 	}
-	t.closed = true
+	t.running = true
+	t.ctx = ctx
+	for userID, since := range t.tracked {
+		t.startLoop(userID, since)
+	}
 	t.mu.Unlock()
 
-	t.cancel()
+	<-ctx.Done()
+
+	t.mu.Lock()
+	t.running = false
+	for userID, cancel := range t.cancels {
+		cancel()
+		delete(t.cancels, userID)
+	}
+	t.mu.Unlock()
+
 	t.wg.Wait()
-	close(t.out)
+	t.bc.close()
+}
+
+// startLoop launches userID's poll loop. The caller holds t.mu
+func (t *UserPoller) startLoop(userID int64, since time.Time) {
+	ctx, cancel := context.WithCancel(t.ctx)
+	t.cancels[userID] = cancel
+	t.wg.Add(1)
+	go t.loop(ctx, userID, since)
 }
 
 func (t *UserPoller) loop(ctx context.Context, userID int64, since time.Time) {
@@ -141,7 +146,7 @@ func (t *UserPoller) loop(ctx context.Context, userID int64, since time.Time) {
 		case <-timer.C:
 			scores, newest, err := t.fetch(userID, watermark)
 			if err != nil {
-				slog.Error("poll fetch failed", "user", userID, "err", err)
+				t.logger.Warn("poll fetch failed", "user", userID, "err", err)
 			}
 
 			fresh := false
@@ -149,9 +154,7 @@ func (t *UserPoller) loop(ctx context.Context, userID int64, since time.Time) {
 				if !s.EndedAt.After(watermark) {
 					continue
 				}
-				if !t.emit(ctx, s) {
-					return
-				}
+				t.bc.emit(ctx, s)
 				fresh = true
 			}
 			if newest.After(watermark) {
@@ -163,25 +166,8 @@ func (t *UserPoller) loop(ctx context.Context, userID int64, since time.Time) {
 			} else {
 				interval = clampInterval(interval*2, t.cfg.BaseInterval, t.cfg.MaxInterval)
 			}
-
-			delay := jitter(interval, t.cfg.JitterFrac)
-			if t.OnCheck != nil {
-				now := time.Now()
-				t.OnCheck(userID, now, now.Add(delay))
-			}
-			timer.Reset(delay)
+			timer.Reset(jitter(interval, t.cfg.JitterFrac))
 		}
-	}
-}
-
-// emit forwards a score, blocking until the consumer takes it so no score is
-// dropped. It bails out if the loop is cancelled while waiting.
-func (t *UserPoller) emit(ctx context.Context, s gosu.FullScore) bool {
-	select {
-	case t.out <- s:
-		return true
-	case <-ctx.Done():
-		return false
 	}
 }
 
@@ -195,7 +181,7 @@ func clampInterval(d, min, max time.Duration) time.Duration {
 	return d
 }
 
-// jitter adds up to frac of d, never subtracting, so the per-user minimum holds.
+// jitter adds up to frac of d, never subtracting, so the per-user minimum holds
 func jitter(d time.Duration, frac float64) time.Duration {
 	if frac <= 0 {
 		return d
@@ -203,16 +189,22 @@ func jitter(d time.Duration, frac float64) time.Duration {
 	return d + time.Duration(rand.Float64()*frac*float64(d))
 }
 
-// osuScoreFetcher fetches a user's recent scores through gosu-api, paging while
-// a whole page is newer than since. It forwards the crude scores the API returns.
-func osuScoreFetcher(provider AuthProvider) FullScoreFetcher {
-	client := gosu.NewClient(0)
+// recentScorePageSize is the per-request score count. The osu! API caps it at 100
+const recentScorePageSize = 100
+
+// osuScoreFetcher fetches a user's recent scores through gosu-api, paging while a
+// whole page is newer than since
+func osuScoreFetcher(app *gosu.App) fullScoreFetcher {
+	client := app.GuestClient(0)
 	return func(userID int64, since time.Time) (gosu.FullScores, time.Time, error) {
 		var out gosu.FullScores
 		var newest time.Time
 
 		for offset := 0; ; offset += recentScorePageSize {
-			page := client.GetRecentScores(provider.GetToken(), userID, recentScorePageSize, offset)
+			page, err := client.GetRecentScores(userID, recentScorePageSize, offset)
+			if err != nil {
+				return out, newest, err
+			}
 			if len(page) == 0 {
 				break
 			}

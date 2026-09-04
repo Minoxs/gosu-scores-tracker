@@ -54,7 +54,7 @@ func TestRealtimePoller_SeedsCursorWithoutEmittingNewestPage(t *testing.T) {
 		{scores: gosu.Scores{{ID: 999}}, cursor: "c0"}, // seed page, must not emit
 		{scores: gosu.Scores{{ID: 1}}, cursor: "c1"},   // first streamed page
 	}}
-	p := NewRealtimePoller(sf.fetch, time.Millisecond)
+	p := newRealtimePoller(sf.fetch, time.Millisecond)
 	sub := p.Subscribe()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -76,7 +76,7 @@ func TestRealtimePoller_ResumeStreamsFromCursorAndAdvances(t *testing.T) {
 	sf := &scriptedFetcher{steps: []fetchResult{
 		{scores: gosu.Scores{{ID: 7}}, cursor: "c1"}, // first streamed page from the resumed cursor
 	}}
-	p := NewRealtimePoller(sf.fetch, time.Millisecond)
+	p := newRealtimePoller(sf.fetch, time.Millisecond)
 	p.Resume("saved")
 	sub := p.Subscribe()
 
@@ -106,7 +106,7 @@ func TestRealtimePoller_RetriesSeedOnError(t *testing.T) {
 		{cursor: "c0"},                               // seed retry succeeds
 		{scores: gosu.Scores{{ID: 5}}, cursor: "c1"}, // streams
 	}}
-	p := NewRealtimePoller(sf.fetch, time.Millisecond)
+	p := newRealtimePoller(sf.fetch, time.Millisecond)
 	sub := p.Subscribe()
 
 	ctx, cancel := context.WithCancel(context.Background())

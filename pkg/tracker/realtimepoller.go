@@ -9,46 +9,36 @@ import (
 	"github.com/minoxs/gosu-api/pkg/gosu"
 )
 
-// ScoresFetcher fetches one page of osu!'s global recent-scores feed newer than
-// cursor, returning the page and the cursor for the next. It is the one osu-facing
-// dependency of RealtimePoller, injected so the tail loop tests without the network.
-type ScoresFetcher func(cursor string) (gosu.Scores, string, error)
+// scoresFetcher fetches one page of the global feed newer than cursor, returning
+// the page and the cursor for the next
+type scoresFetcher func(cursor string) (gosu.Scores, string, error)
 
-// RealtimeConfig sets the tail cadence, which ruleset to follow, and the pacer
-// priority the feed poll reserves at.
+// RealtimeConfig sets the tail cadence, ruleset, and pacer priority
 type RealtimeConfig struct {
-	// Interval is the wait between polls once caught up. A poll returns every score
-	// set since the last one, so the interval bounds latency, not completeness, as
-	// long as it stays short enough that a page does not overflow.
+	// Interval is the wait between polls once caught up
 	Interval time.Duration
-	// Ruleset is the osu! ruleset name to follow, e.g. "osu". Empty means "osu".
+	// Ruleset is the osu! ruleset to follow, e.g. "osu". Empty means "osu"
 	Ruleset string
-	// Priority is the pacer level the feed poll reserves at. The caller sets it so
-	// the feed never starves behind lower-priority traffic.
+	// Priority is the pacer level the feed poll reserves at
 	Priority gosu.Priority
 }
 
 const (
-	// DefaultInterval keeps the tail well inside one page. osu!standard sets on the
-	// order of twenty scores a second globally, and a page holds about a thousand,
-	// so this leaves wide margin.
+	// DefaultInterval keeps the tail well inside one page. The feed returns up to
+	// 1000 scores a page and osu!standard sets on the order of twenty a second
 	DefaultInterval = 15 * time.Second
 
-	// drainThreshold is the page size above which a poll likely left more behind, so
-	// the next poll fires at once instead of waiting the interval.
+	// drainThreshold is the page size above which a poll likely left more behind,
+	// so the next poll fires at once
 	drainThreshold = 500
 )
 
-// RealtimePoller tails osu!'s global scores feed, the passing scores every player
-// sets, fanning each out through an embedded Broadcaster until its Run context is
-// done.
-//
-// The scores it emits are lean: osu!'s global feed omits the beatmap, sending only
-// a flat beatmap_id, so an emitted Score carries only BeatmapID. Filling in the
-// beatmap is a consumer's concern.
+// RealtimePoller tails osu!'s global scores feed, fanning each score to its
+// subscribers until Run stops. The scores are lean: the feed omits the beatmap and
+// sends only a beatmap_id
 type RealtimePoller struct {
-	*Broadcaster
-	fetch    ScoresFetcher
+	bc       *broadcaster[gosu.Score]
+	fetch    scoresFetcher
 	interval time.Duration
 	logger   *slog.Logger
 
@@ -56,40 +46,43 @@ type RealtimePoller struct {
 	cursor string
 }
 
-// NewRealtimePoller builds a poller driven by the given fetcher.
-func NewRealtimePoller(fetch ScoresFetcher, interval time.Duration) *RealtimePoller {
-	if interval <= 0 {
-		interval = DefaultInterval
-	}
-	return &RealtimePoller{
-		Broadcaster: NewBroadcaster(),
-		fetch:       fetch,
-		interval:    interval,
-		logger:      slog.Default().With("component", "realtime"),
-	}
-}
-
-// NewOsuRealtimePoller builds a RealtimePoller that tails osu!'s feed through
-// gosu-api.
-func NewOsuRealtimePoller(provider AuthProvider, cfg RealtimeConfig) *RealtimePoller {
+// NewRealtimePoller builds a poller that tails the feed through app, sharing its
+// rate ceiling so your own app.GuestClient calls are never crowded out
+func NewRealtimePoller(app *gosu.App, cfg RealtimeConfig) *RealtimePoller {
 	ruleset := cfg.Ruleset
 	if ruleset == "" {
 		ruleset = "osu"
 	}
-	client := gosu.NewClient(cfg.Priority)
+	client := app.GuestClient(cfg.Priority)
 	fetch := func(cursor string) (gosu.Scores, string, error) {
-		return client.GetScores(provider.GetToken(), ruleset, cursor)
+		return client.GetScores(ruleset, cursor)
 	}
-	return NewRealtimePoller(fetch, cfg.Interval)
+	return newRealtimePoller(fetch, cfg.Interval)
 }
 
-// Run streams the feed forward, emitting every score set after it started, until
-// ctx is cancelled. It blocks, so callers run it in a goroutine. With no resume
-// cursor it first seeds at the newest score, whose page is a historical snapshot
-// and so is used only to seed and is not emitted; resumed from a persisted cursor
-// it instead streams the scores set since that cursor, so a restart does not skip
-// scores set during downtime.
+func newRealtimePoller(fetch scoresFetcher, interval time.Duration) *RealtimePoller {
+	if interval <= 0 {
+		interval = DefaultInterval
+	}
+	return &RealtimePoller{
+		bc:       newBroadcaster[gosu.Score](),
+		fetch:    fetch,
+		interval: interval,
+		logger:   slog.Default().With("component", "realtime"),
+	}
+}
+
+// Subscribe returns an independent stream of the feed's scores. Drain it or delivery
+// blocks and slows the feed. Close it to unsubscribe; Run closes the rest when it stops
+func (p *RealtimePoller) Subscribe() chan gosu.Score { return p.bc.subscribe() }
+
+// Run streams the feed forward until ctx is cancelled. It blocks, so run it in a
+// goroutine. Seeded fresh it skips the newest page as a historical snapshot and
+// streams what follows; resumed from a cursor it streams the scores set since, so a
+// restart does not skip scores set during downtime
 func (p *RealtimePoller) Run(ctx context.Context) {
+	defer p.bc.close()
+
 	cursor := p.Cursor()
 	if cursor == "" {
 		seeded, ok := p.seed(ctx)
@@ -115,7 +108,7 @@ func (p *RealtimePoller) Run(ctx context.Context) {
 				continue
 			}
 			for i := range scores {
-				p.Emit(scores[i])
+				p.bc.emit(ctx, scores[i])
 			}
 			if next != "" {
 				cursor = next
@@ -131,17 +124,15 @@ func (p *RealtimePoller) Run(ctx context.Context) {
 }
 
 // Cursor returns the feed position the poller has reached, empty before it seeds.
-// Persist it and pass it back through Resume to continue the tail across a restart,
-// so scores set during downtime are streamed rather than skipped.
+// Persist it and pass it to Resume to continue the tail across a restart
 func (p *RealtimePoller) Cursor() string {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.cursor
 }
 
-// Resume sets the position the next Run starts from, so the tail streams the scores
-// set since it instead of seeding at the newest and skipping the gap. Call before
-// Run; an empty cursor leaves Run to seed as usual.
+// Resume sets the position the next Run starts from. Call before Run; an empty
+// cursor leaves Run to seed as usual
 func (p *RealtimePoller) Resume(cursor string) { p.setCursor(cursor) }
 
 func (p *RealtimePoller) setCursor(cursor string) {
@@ -151,7 +142,7 @@ func (p *RealtimePoller) setCursor(cursor string) {
 }
 
 // seed fetches the newest page to adopt its cursor without emitting it, retrying on
-// error. It returns false only when ctx is cancelled.
+// error. It returns false only when ctx is cancelled
 func (p *RealtimePoller) seed(ctx context.Context) (string, bool) {
 	timer := time.NewTimer(0)
 	defer timer.Stop()
